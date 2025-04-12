@@ -15,16 +15,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+// import { View, Text, StyleSheet } from "react-native";
 
-// import { StyleSheet, Text, View } from "react-native";
-
-// const Home = () => {
+// export default function Page() {
 //   return (
 //     <View style={styles.container}>
 //       <Text style={styles.text}>Kera jajca</Text>
 //     </View>
 //   );
-// };
+// }
 
 // const styles = StyleSheet.create({
 //   container: {
@@ -33,12 +32,10 @@ const styles = StyleSheet.create({
 //     alignItems: "center",
 //   },
 //   text: {
-//     fontSize: 80, // Extra large font size
+//     fontSize: 40,
 //     fontWeight: "bold",
 //   },
 // });
-
-// export default Home;
 
 // import Carousel from "react-native-snap-carousel";
 
