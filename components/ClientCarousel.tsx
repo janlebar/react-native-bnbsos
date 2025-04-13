@@ -8,7 +8,11 @@ import {
   Dimensions,
 } from "react-native";
 import Carousel from "react-native-reanimated-carousel";
-import dataMap from "../data/dataMap";
+import Animated, {
+  Extrapolate,
+  interpolate,
+  useAnimatedStyle,
+} from "react-native-reanimated";
 
 interface ClientCarouselProps {
   images: { src: string; title: string }[];
@@ -17,6 +21,8 @@ interface ClientCarouselProps {
 }
 
 const screenWidth = Dimensions.get("window").width;
+const ITEM_WIDTH = screenWidth * 0.75;
+const SPACING = 16;
 
 export default function ClientCarousel({
   images,
@@ -28,42 +34,47 @@ export default function ClientCarousel({
   );
 
   const handleCarouselButtonClick = (title: string) => {
-    for (const [key, value] of dataMap.entries()) {
-      if (
-        value.profession &&
-        typeof value.profession === "string" &&
-        value.profession.toLowerCase() === title.toLowerCase()
-      ) {
-        setSelectedProfession(key);
-        console.log("Profession selected:", key);
-        return;
-      }
-    }
-    console.log("No match found for title:", title);
+    console.log("Clicked:", title);
+    // Your logic here
   };
 
   return (
-    <View style={{ alignItems: "center" }}>
+    <View style={{ alignItems: "center", paddingVertical: 20 }}>
       <Carousel
         loop
-        mode="parallax"
-        width={screenWidth * 0.8}
-        height={220}
+        width={ITEM_WIDTH + SPACING}
+        height={240}
         autoPlay={false}
         pagingEnabled
         snapEnabled
+        mode="parallax"
         data={images}
-        scrollAnimationDuration={600}
-        style={{ flexGrow: 0 }}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.slide}
-            onPress={() => handleCarouselButtonClick(item.title)}
-          >
-            <Image source={{ uri: item.src }} style={styles.image} />
-            <Text style={styles.title}>{item.title}</Text>
-          </TouchableOpacity>
-        )}
+        scrollAnimationDuration={700}
+        renderItem={({ item, index, animationValue }) => {
+          const animatedStyle = useAnimatedStyle(() => {
+            const scale = interpolate(
+              animationValue.value,
+              [-1, 0, 1],
+              [0.85, 1, 0.85],
+              Extrapolate.CLAMP
+            );
+            return {
+              transform: [{ scale }],
+            };
+          });
+
+          return (
+            <Animated.View style={[styles.slide, animatedStyle]}>
+              <TouchableOpacity
+                style={styles.touchable}
+                onPress={() => handleCarouselButtonClick(item.title)}
+              >
+                <Image source={{ uri: item.src }} style={styles.image} />
+                <Text style={styles.title}>{item.title}</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          );
+        }}
       />
     </View>
   );
@@ -71,25 +82,29 @@ export default function ClientCarousel({
 
 const styles = StyleSheet.create({
   slide: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
+    width: ITEM_WIDTH,
     height: 200,
-    width: screenWidth * 0.75,
+    marginHorizontal: SPACING / 2,
+    borderRadius: 14,
+    backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
-    padding: 12,
-    marginHorizontal: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  touchable: {
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
   },
   image: {
-    width: 60,
-    height: 60,
-    marginBottom: 10,
+    width: 64,
+    height: 64,
     resizeMode: "contain",
+    marginBottom: 8,
   },
   title: {
     fontSize: 16,
