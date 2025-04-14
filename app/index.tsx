@@ -4,8 +4,13 @@ import ClientCarousel from "../components/ClientCarousel";
 import { getCarouselImages } from "../data/carouselData";
 import { auth } from "../lib/auth";
 
+type CarouselImage = {
+  src: string;
+  title: string;
+};
+
 export default function Home() {
-  const [images, setImages] = useState([]);
+  const [images, setImages] = useState<CarouselImage[]>([]);
   const [isSignedIn, setIsSignedIn] = useState(false);
 
   useEffect(() => {
