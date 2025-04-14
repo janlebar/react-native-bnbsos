@@ -1,9 +1,11 @@
-const images = [
-  { src: "https://example.com/image1.png", title: "Electrician" },
-  { src: "https://example.com/image2.png", title: "Plumber" },
-  { src: "https://example.com/image3.png", title: "Painter" },
-];
+//carouselData.tsx
+
+import PlumberIcon from "../assets/icons/plumbing_services.svg";
+import ElectricianIcon from "../assets/icons/electrical_services.svg";
 
 export function getCarouselImages() {
-  return images;
+  return [
+    { Icon: PlumberIcon, title: "Plumber" },
+    { Icon: ElectricianIcon, title: "Electrician" },
+  ];
 }
