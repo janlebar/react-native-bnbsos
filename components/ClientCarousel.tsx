@@ -15,9 +15,10 @@ import Animated, {
   interpolate,
   useAnimatedStyle,
 } from "react-native-reanimated";
+import { SvgProps } from "react-native-svg";
 
 interface ClientCarouselProps {
-  images: { src: string; title: string }[];
+  images: { Icon: React.FC<SvgProps>; title: string }[];
   location: string;
   isSignedIn: boolean;
 }
@@ -71,7 +72,8 @@ export default function ClientCarousel({
                 style={styles.touchable}
                 onPress={() => handleCarouselButtonClick(item.title)}
               >
-                <Image source={{ uri: item.src }} style={styles.image} />
+                <item.Icon width={64} height={64} />
+
                 <Text style={styles.title}>{item.title}</Text>
               </TouchableOpacity>
             </Animated.View>
