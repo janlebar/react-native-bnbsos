@@ -44,3 +44,5 @@ yarn-error.*
 *.jpeg
 *.gif
 *.svg
+
+*READMEFIX.md
