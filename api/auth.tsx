@@ -1,7 +1,7 @@
 // src/api/auth.ts
 
 import axios from "axios";
-import { UserCredentials, LoginResponse } from "../../types/auth";
+import { UserCredentials, LoginResponse } from "./types";
 
 const API_URL = "https://yourapi.com"; // Keep it here for future use
 
