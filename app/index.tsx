@@ -6,8 +6,6 @@ import { getCarouselImages } from "../data/carouselData";
 import { auth } from "../lib/auth";
 import { SvgProps } from "react-native-svg";
 
-import PlumberIcon from "../assets/icons/plumbing_services.svg";
-
 type CarouselImage = {
   Icon: React.FC<SvgProps>;
   title: string;
@@ -37,7 +35,6 @@ export default function Home() {
         location="Ljubljana"
         isSignedIn={isSignedIn}
       />
-      <PlumberIcon></PlumberIcon>
     </View>
   );
 }
