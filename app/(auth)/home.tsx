@@ -5,6 +5,7 @@ import { getCarouselImages } from "../../data/carouselData";
 import { auth } from "../../lib/auth";
 import { SvgProps } from "react-native-svg";
 import FooterMenu from "../user/footerMenu";
+// import ElectricianIcon from "../../assets/icons/electrical_services.svg";
 
 type CarouselImage = {
   Icon: React.FC<SvgProps>;
@@ -33,6 +34,7 @@ export default function Home() {
         location="Ljubljana"
         isSignedIn={isSignedIn}
       />
+      {/* <ElectricianIcon width={48} height={48} /> */}
       <FooterMenu />
     </View>
   );
