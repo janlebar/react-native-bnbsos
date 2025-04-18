@@ -1,5 +1,5 @@
 import React, { useState, useTransition } from "react";
-import { View, Text, StyleSheet, Switch } from "react-native";
+import { View, Text, StyleSheet, Switch, TouchableOpacity } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { TextInput, Button } from "react-native-paper";
 import { loginApi } from "../api/auth";
@@ -20,7 +20,7 @@ export default function LoginForm() {
   const [success, setSuccess] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  const { control, handleSubmit, reset, setValue } = useForm<LoginFormValues>({
+  const { control, handleSubmit, reset } = useForm<LoginFormValues>({
     defaultValues: {
       email: "",
       password: "",
@@ -53,6 +53,10 @@ export default function LoginForm() {
         })
         .catch(() => setError("Invalid credentials or something went wrong"));
     });
+  };
+
+  const navigateToRegister = () => {
+    router.push("/register");
   };
 
   return (
@@ -126,11 +130,11 @@ export default function LoginForm() {
               onChangeText={onChange}
               disabled={isPending}
               style={styles.input}
-              placeholder="12345"
               mode="flat"
               underlineColor="gray"
               activeUnderlineColor="black"
               textColor="black"
+              placeholder="12345"
             />
           )}
         />
@@ -147,6 +151,10 @@ export default function LoginForm() {
       >
         {showTwoFactor ? "Confirm" : "Login"}
       </Button>
+
+      <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
+        <Text style={styles.registerLink}>Register here!</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -177,7 +185,15 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     justifyContent: "space-between",
   },
+  registerLink: {
+    marginTop: 24,
+    textAlign: "center",
+    color: "black",
+    fontSize: 16,
+    textDecorationLine: "underline",
+  },
 });
+
 // import React, { useState, useTransition } from "react";
 // import { View, Text, StyleSheet, Switch } from "react-native";
 // import { useForm, Controller } from "react-hook-form";
