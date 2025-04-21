@@ -58,6 +58,9 @@ export default function LoginForm() {
   const navigateToRegister = () => {
     router.push("/register");
   };
+  const navigateToForgotPassword = () => {
+    router.push("/reset-password");
+  };
 
   return (
     <View style={styles.container}>
@@ -105,7 +108,12 @@ export default function LoginForm() {
               />
             )}
           />
-
+          <TouchableOpacity
+            onPress={navigateToForgotPassword}
+            disabled={isPending}
+          >
+            <Text style={styles.forgotPasswordLink}>Forgot password?</Text>
+          </TouchableOpacity>
           <View style={styles.switchRow}>
             <Text style={styles.label}>Log in as Contractor</Text>
             <Switch
@@ -153,7 +161,9 @@ export default function LoginForm() {
       </Button>
 
       <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
-        <Text style={styles.registerLink}>Register here!</Text>
+        <Text style={styles.registerLink}>
+          Don't have an account? Register here!
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -186,6 +196,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   registerLink: {
+    marginTop: 24,
+    textAlign: "center",
+    color: "black",
+    fontSize: 16,
+    textDecorationLine: "underline",
+  },
+  forgotPasswordLink: {
     marginTop: 24,
     textAlign: "center",
     color: "black",

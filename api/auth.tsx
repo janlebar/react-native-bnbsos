@@ -28,6 +28,15 @@ export const loginApi = async (
   }
 };
 
+// Fake password reset API
+export const resetApi = async ({ email }: { email: string }) => {
+  if (email === "test@test.com") {
+    return Promise.resolve("Reset email sent");
+  } else {
+    return Promise.reject("Email not found");
+  }
+};
+
 // import axios from "axios";
 // import { UserCredentials, LoginResponse } from "../../types/auth";
 
