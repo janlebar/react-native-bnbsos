@@ -9,3 +9,8 @@ export interface LoginResponse {
   twoFactorRequired: boolean;
   isContractor: boolean;
 }
+
+export type RootStackParamList = {
+  ContractorsList: { location: string; profession: string[] };
+  ContractorDetails: { id: string }; // or whatever the actual ID type is
+};

@@ -16,6 +16,7 @@ import Animated, {
   useAnimatedStyle,
 } from "react-native-reanimated";
 import { SvgProps } from "react-native-svg";
+import ContractorsList from "../app/contractors/contractors";
 
 interface ClientCarouselProps {
   images: { Icon: React.FC<SvgProps>; title: string }[];
@@ -80,6 +81,7 @@ export default function ClientCarousel({
           );
         }}
       />
+      <ContractorsList></ContractorsList>
     </View>
   );
 }

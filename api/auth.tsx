@@ -37,6 +37,85 @@ export const resetApi = async ({ email }: { email: string }) => {
   }
 };
 
+// src/api/auth.ts
+
+export interface Contractor {
+  id: number;
+  name: string;
+  rating?: number;
+  specialization?: string;
+  description?: string;
+  certifications: string[];
+  availability?: string;
+  yearsOfExperience?: number;
+  address?: string;
+  city: string;
+  contractorLatitude?: number;
+  contractorLongitude?: number;
+  datePosted?: string;
+  confirmed?: boolean;
+  imageId?: string;
+  user?: {
+    email?: string;
+  };
+  phone?: string;
+}
+
+export const getContractorsByLocationAndProfession = async (
+  contractorLocation: string,
+  profession: string[]
+): Promise<Contractor[]> => {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      if (!contractorLocation || !profession.length) {
+        resolve([]);
+        return;
+      }
+
+      // Fake data
+      const mockData: Contractor[] = [
+        {
+          id: 1,
+          name: "Alice Builder",
+          rating: 8.7,
+          specialization: "Plumber",
+          description: "Experienced and reliable plumber.",
+          certifications: ["Plumber", "Pipe Fitter"],
+          availability: "Weekdays",
+          yearsOfExperience: 10,
+          address: "123 Main St",
+          city: contractorLocation,
+          imageId: "https://randomuser.me/api/portraits/women/1.jpg",
+          user: { email: "alice@example.com" },
+          phone: "555-1234",
+        },
+        {
+          id: 2,
+          name: "Bob Electrician",
+          rating: 9.2,
+          specialization: "Electrician",
+          description: "Certified electrician with over a decade of work.",
+          certifications: ["Electrician"],
+          availability: "Weekends",
+          yearsOfExperience: 12,
+          address: "456 Oak Ave",
+          city: contractorLocation,
+          imageId: "https://randomuser.me/api/portraits/men/2.jpg",
+          user: { email: "bob@example.com" },
+          phone: "555-5678",
+        },
+      ];
+
+      // Filter by certifications
+      const filtered = mockData.filter((contractor) =>
+        contractor.certifications.some((cert) => profession.includes(cert))
+      );
+
+      resolve(filtered);
+    }, 1000); // simulate 1s network delay
+  });
+};
+
 // import axios from "axios";
 // import { UserCredentials, LoginResponse } from "../../types/auth";
 
