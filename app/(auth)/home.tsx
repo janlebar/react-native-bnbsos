@@ -5,15 +5,20 @@ import { getCarouselImages } from "../../data/carouselData";
 import { auth } from "../../lib/auth";
 import { SvgProps } from "react-native-svg";
 import FooterMenu from "../user/footerMenu";
+import ContractorsList from "../contractors/contractors";
 
 type CarouselImage = {
   Icon: React.FC<SvgProps>;
   title: string;
 };
 
+// Home.tsx
 export default function Home() {
   const [images, setImages] = useState<CarouselImage[]>([]);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [selectedProfession, setSelectedProfession] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     async function fetchData() {
@@ -34,7 +39,14 @@ export default function Home() {
             images={images}
             location="Ljubljana"
             isSignedIn={isSignedIn}
+            onSelectProfession={setSelectedProfession}
           />
+          {selectedProfession && (
+            <ContractorsList
+              location="Ljubljana"
+              profession={[selectedProfession]}
+            />
+          )}
         </View>
         <FooterMenu />
       </View>

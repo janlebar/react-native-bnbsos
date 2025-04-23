@@ -1,11 +1,8 @@
-//ClientCarousel.tsx
-
 import React, { useState } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   StyleSheet,
   Dimensions,
 } from "react-native";
@@ -22,6 +19,7 @@ interface ClientCarouselProps {
   images: { Icon: React.FC<SvgProps>; title: string }[];
   location: string;
   isSignedIn: boolean;
+  onSelectProfession: (profession: string) => void;
 }
 
 const screenWidth = Dimensions.get("window").width;
@@ -39,7 +37,7 @@ export default function ClientCarousel({
 
   const handleCarouselButtonClick = (title: string) => {
     console.log("Clicked:", title);
-    // Your logic here
+    setSelectedProfession(title);
   };
 
   return (
@@ -54,7 +52,7 @@ export default function ClientCarousel({
         mode="parallax"
         data={images}
         scrollAnimationDuration={700}
-        renderItem={({ item, index, animationValue }) => {
+        renderItem={({ item, animationValue }) => {
           const animatedStyle = useAnimatedStyle(() => {
             const scale = interpolate(
               animationValue.value,
@@ -74,14 +72,18 @@ export default function ClientCarousel({
                 onPress={() => handleCarouselButtonClick(item.title)}
               >
                 <item.Icon width={64} height={64} />
-
                 <Text style={styles.title}>{item.title}</Text>
               </TouchableOpacity>
             </Animated.View>
           );
         }}
       />
-      <ContractorsList></ContractorsList>
+      {selectedProfession && (
+        <ContractorsList
+          location={location}
+          profession={[selectedProfession]}
+        />
+      )}
     </View>
   );
 }
@@ -105,12 +107,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 10,
-  },
-  image: {
-    width: 64,
-    height: 64,
-    resizeMode: "contain",
-    marginBottom: 8,
   },
   title: {
     fontSize: 16,
