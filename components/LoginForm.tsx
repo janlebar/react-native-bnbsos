@@ -1,5 +1,14 @@
 import React, { useState, useTransition } from "react";
-import { View, Text, StyleSheet, Switch, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Switch,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { TextInput, Button } from "react-native-paper";
 import { loginApi } from "../api/auth";
@@ -63,117 +72,131 @@ export default function LoginForm() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Welcome Back</Text>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={{ flex: 1 }}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.container}>
+          <Text style={styles.header}>Welcome Back</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {success ? <Text style={styles.success}>{success}</Text> : null}
+          {error ? <Text style={styles.error}>{error}</Text> : null}
+          {success ? <Text style={styles.success}>{success}</Text> : null}
 
-      {!showTwoFactor && (
-        <>
-          <Controller
-            control={control}
-            name="email"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                label="Email"
-                value={value}
-                onChangeText={onChange}
-                disabled={isPending}
-                autoCapitalize="none"
-                style={styles.input}
-                mode="flat"
-                underlineColor="gray"
-                activeUnderlineColor="black"
-                textColor="black"
+          {!showTwoFactor && (
+            <>
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    label="Email"
+                    value={value}
+                    onChangeText={onChange}
+                    disabled={isPending}
+                    autoCapitalize="none"
+                    style={styles.input}
+                    mode="flat"
+                    underlineColor="gray"
+                    activeUnderlineColor="black"
+                    textColor="black"
+                  />
+                )}
               />
-            )}
-          />
 
-          <Controller
-            control={control}
-            name="password"
-            render={({ field: { onChange, value } }) => (
-              <TextInput
-                label="Password"
-                value={value}
-                onChangeText={onChange}
-                disabled={isPending}
-                secureTextEntry
-                style={styles.input}
-                mode="flat"
-                underlineColor="gray"
-                activeUnderlineColor="black"
-                textColor="black"
+              <Controller
+                control={control}
+                name="password"
+                render={({ field: { onChange, value } }) => (
+                  <TextInput
+                    label="Password"
+                    value={value}
+                    onChangeText={onChange}
+                    disabled={isPending}
+                    secureTextEntry
+                    style={styles.input}
+                    mode="flat"
+                    underlineColor="gray"
+                    activeUnderlineColor="black"
+                    textColor="black"
+                  />
+                )}
               />
-            )}
-          />
-          <TouchableOpacity
-            onPress={navigateToForgotPassword}
-            disabled={isPending}
-          >
-            <Text style={styles.forgotPasswordLink}>Forgot password?</Text>
-          </TouchableOpacity>
-          <View style={styles.switchRow}>
-            <Text style={styles.label}>Log in as Contractor</Text>
-            <Switch
-              value={isContractor}
-              onValueChange={setIsContractor}
-              disabled={isPending}
-              thumbColor={isContractor ? "black" : "gray"}
-              trackColor={{ false: "#ccc", true: "#444" }}
-            />
-          </View>
-        </>
-      )}
 
-      {showTwoFactor && (
-        <Controller
-          control={control}
-          name="code"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              label="Two-Factor Code"
-              value={value}
-              onChangeText={onChange}
-              disabled={isPending}
-              style={styles.input}
-              mode="flat"
-              underlineColor="gray"
-              activeUnderlineColor="black"
-              textColor="black"
-              placeholder="12345"
+              <TouchableOpacity
+                onPress={navigateToForgotPassword}
+                disabled={isPending}
+              >
+                <Text style={styles.forgotPasswordLink}>Forgot password?</Text>
+              </TouchableOpacity>
+
+              <View style={styles.switchRow}>
+                <Text style={styles.label}>Log in as Contractor</Text>
+                <Switch
+                  value={isContractor}
+                  onValueChange={setIsContractor}
+                  disabled={isPending}
+                  thumbColor={isContractor ? "black" : "gray"}
+                  trackColor={{ false: "#ccc", true: "#444" }}
+                />
+              </View>
+            </>
+          )}
+
+          {showTwoFactor && (
+            <Controller
+              control={control}
+              name="code"
+              render={({ field: { onChange, value } }) => (
+                <TextInput
+                  label="Two-Factor Code"
+                  value={value}
+                  onChangeText={onChange}
+                  disabled={isPending}
+                  style={styles.input}
+                  mode="flat"
+                  underlineColor="gray"
+                  activeUnderlineColor="black"
+                  textColor="black"
+                  placeholder="12345"
+                />
+              )}
             />
           )}
-        />
-      )}
 
-      <Button
-        mode="contained"
-        onPress={handleSubmit(onSubmit)}
-        loading={isPending}
-        disabled={isPending}
-        style={styles.button}
-        labelStyle={styles.buttonLabel}
-        contentStyle={{ backgroundColor: "black" }}
-      >
-        {showTwoFactor ? "Confirm" : "Login"}
-      </Button>
+          <Button
+            mode="contained"
+            onPress={handleSubmit(onSubmit)}
+            loading={isPending}
+            disabled={isPending}
+            style={styles.button}
+            labelStyle={styles.buttonLabel}
+            contentStyle={{ backgroundColor: "black" }}
+          >
+            {showTwoFactor ? "Confirm" : "Login"}
+          </Button>
 
-      <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
-        <Text style={styles.registerLink}>
-          Don't have an account? Register here!
-        </Text>
-      </TouchableOpacity>
-    </View>
+          <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
+            <Text style={styles.registerLink}>
+              Don't have an account? Register here!
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+  },
   container: {
     padding: 24,
-    flex: 1,
-    justifyContent: "center",
     backgroundColor: "#fff",
   },
   header: {
