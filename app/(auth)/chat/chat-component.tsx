@@ -10,8 +10,8 @@ import {
   ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Chat, ChatGroup } from "./types";
-import ChatDisplay from "./ChatDisplay"; // Make sure this is RN-compatible
+import { Chat, ChatGroup } from "../types";
+import { ChatDisplay } from "./chatDisplay";
 
 interface ChatProps {
   senderName?: string | null;
