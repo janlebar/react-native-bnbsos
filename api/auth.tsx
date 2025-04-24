@@ -2,6 +2,8 @@
 
 import axios from "axios";
 import { UserCredentials, LoginResponse } from "./types";
+import { RegisterFormValues } from "./types";
+// Adjust path as needed
 
 const API_URL = "https://yourapi.com"; // Keep it here for future use
 
@@ -26,6 +28,29 @@ export const loginApi = async (
     // Simulate a failed login
     return Promise.reject("Invalid credentials");
   }
+};
+
+// Fake register API
+type RegisterResponse = {
+  token: string;
+  isContractor: boolean;
+};
+
+export const registerApi = async (
+  data: RegisterFormValues & { isContractor: boolean }
+): Promise<RegisterResponse> => {
+  // Simulate delay
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // You could simulate errors for certain emails if needed
+  if (data.email === "fail@test.com") {
+    return Promise.reject("Email already exists");
+  }
+
+  return Promise.resolve({
+    token: "fake-register-token-456",
+    isContractor: data.isContractor,
+  });
 };
 
 // Fake password reset API

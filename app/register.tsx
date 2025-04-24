@@ -27,6 +27,10 @@ type RegisterFormValues = {
   yearsOfExperience?: string;
 };
 
+type RegisterResponse = {
+  token: string;
+};
+
 export default function RegisterForm() {
   const router = useRouter();
   const [isContractor, setIsContractor] = useState(false);
@@ -53,7 +57,7 @@ export default function RegisterForm() {
 
     startTransition(() => {
       registerApi({ ...values, isContractor })
-        .then(async (response) => {
+        .then(async (response: RegisterResponse) => {
           await saveToken(response.token);
           setSuccess("Account created successfully!");
           reset();
