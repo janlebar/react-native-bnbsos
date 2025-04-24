@@ -6,6 +6,7 @@ import { deleteToken } from "../../utils/secureStore";
 import { useRouter } from "expo-router";
 import LogoutIcon from "../../assets/icons/logout.svg";
 import ProfileIcon from "../../assets/icons/profile.svg";
+import ChatBubble from "../../assets/icons/chat_bubble.svg";
 
 export default function FooterMenu() {
   const router = useRouter();
@@ -19,6 +20,10 @@ export default function FooterMenu() {
     router.push("/profile");
   };
 
+  const handleChat = () => {
+    router.push("/chat");
+  };
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.button} onPress={handleProfile}>
@@ -30,6 +35,9 @@ export default function FooterMenu() {
         onPress={handleLogout}
       >
         <LogoutIcon width={24} height={24} style={styles.icon} />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={handleChat}>
+        <ChatBubble width={24} height={24} style={styles.icon} />
       </TouchableOpacity>
     </View>
   );

@@ -3,7 +3,7 @@
 import axios from "axios";
 import { UserCredentials, LoginResponse } from "./types";
 import { RegisterFormValues } from "./types";
-// Adjust path as needed
+import { User } from "./types"; // Add this if you have a User type
 
 const API_URL = "https://yourapi.com"; // Keep it here for future use
 
@@ -139,6 +139,21 @@ export const getContractorsByLocationAndProfession = async (
       resolve(filtered);
     }, 1000); // simulate 1s network delay
   });
+};
+
+//Fake CurrentUrer api
+
+export const getCurrentUser = async (): Promise<User | null> => {
+  // Simulated user session
+  await new Promise((resolve) => setTimeout(resolve, 500)); // simulate latency
+
+  // Return a fake logged-in user
+  return {
+    id: "user-123",
+    name: "Test User",
+    email: "test@test.com",
+    isContractor: false,
+  };
 };
 
 // import axios from "axios";

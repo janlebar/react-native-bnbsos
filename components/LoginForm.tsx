@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { TextInput, Button } from "react-native-paper";
-import { loginApi } from "../api/auth";
+import { loginApi } from "../api/authapi";
 import { saveToken } from "../utils/secureStore";
 import { useRouter } from "expo-router";
 

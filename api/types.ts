@@ -1,3 +1,10 @@
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  isContractor: boolean;
+};
+
 export interface UserCredentials {
   email: string;
   password: string;

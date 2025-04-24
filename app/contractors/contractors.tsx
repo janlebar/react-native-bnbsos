@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
-import { getContractorsByLocationAndProfession } from "../../api/auth";
+import { getContractorsByLocationAndProfession } from "../../api/authapi";
 import { auth } from "../../lib/auth"; // adjust the path to your actual file
 
 interface ContractorsListProps {

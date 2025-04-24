@@ -1,8 +1,14 @@
 import React, { useState, useTransition } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { TextInput, Button } from "react-native-paper";
-import { resetApi } from "../api/auth";
+import { resetApi } from "../api/authapi";
 import { useRouter } from "expo-router";
 
 type ResetFormValues = {
@@ -46,59 +52,65 @@ export default function ResetForm() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Reset Password</Text>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.container}>
+        <Text style={styles.header}>Reset Password</Text>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {success ? <Text style={styles.success}>{success}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {success ? <Text style={styles.success}>{success}</Text> : null}
 
-      <Controller
-        control={control}
-        name="email"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            label="Email"
-            value={value}
-            onChangeText={onChange}
-            disabled={isPending}
-            autoCapitalize="none"
-            style={styles.input}
-            mode="flat"
-            underlineColor="gray"
-            activeUnderlineColor="black"
-            textColor="black"
-            placeholder="name@example.com"
-          />
-        )}
-      />
+        <Controller
+          control={control}
+          name="email"
+          render={({ field: { onChange, value } }) => (
+            <TextInput
+              label="Email"
+              value={value}
+              onChangeText={onChange}
+              disabled={isPending}
+              autoCapitalize="none"
+              style={styles.input}
+              mode="flat"
+              underlineColor="gray"
+              activeUnderlineColor="black"
+              textColor="black"
+              placeholder="name@example.com"
+            />
+          )}
+        />
 
-      <Button
-        mode="contained"
-        onPress={handleSubmit(onSubmit)}
-        loading={isPending}
-        disabled={isPending}
-        style={styles.button}
-        labelStyle={styles.buttonLabel}
-        contentStyle={{ backgroundColor: "black" }}
-      >
-        Send Reset Email
-      </Button>
+        <Button
+          mode="contained"
+          onPress={handleSubmit(onSubmit)}
+          loading={isPending}
+          disabled={isPending}
+          style={styles.button}
+          labelStyle={styles.buttonLabel}
+          contentStyle={{ backgroundColor: "black" }}
+        >
+          Send Reset Email
+        </Button>
 
-      <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
-        <Text style={styles.registerLink}>
-          Don't have an account? Register here!
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
+          <Text style={styles.registerLink}>
+            Don't have an account? Register here!
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 24,
-    flex: 1,
+  scrollContainer: {
+    flexGrow: 1,
     justifyContent: "center",
     backgroundColor: "#fff",
+    padding: 24,
+  },
+  container: {
+    flex: 1,
+    justifyContent: "center",
   },
   header: {
     fontSize: 32,

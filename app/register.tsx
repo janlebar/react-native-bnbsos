@@ -13,7 +13,7 @@ import {
 import { useForm, Controller } from "react-hook-form";
 import { TextInput, Button } from "react-native-paper";
 import { useRouter } from "expo-router";
-import { registerApi } from "../api/auth";
+import { registerApi } from "../api/authapi";
 import { saveToken } from "../utils/secureStore";
 
 type RegisterFormValues = {
