@@ -1,18 +1,23 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, SafeAreaView } from "react-native";
 import ClientCarousel from "../../components/ClientCarousel";
 import { getCarouselImages } from "../../data/carouselData";
 import { auth } from "../../lib/auth";
 import { SvgProps } from "react-native-svg";
 import FooterMenu from "../user/footerMenu";
 import ContractorsList from "../contractors/contractors";
+import {
+  View,
+  StyleSheet,
+  SafeAreaView,
+  FlatList,
+  ListRenderItemInfo,
+} from "react-native";
 
 type CarouselImage = {
   Icon: React.FC<SvgProps>;
   title: string;
 };
 
-// Home.tsx
 export default function Home() {
   const [images, setImages] = useState<CarouselImage[]>([]);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -31,24 +36,33 @@ export default function Home() {
     fetchData();
   }, []);
 
+  const renderEmpty = () => <View />;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.content}>
-          <ClientCarousel
-            images={images}
-            location="Ljubljana"
-            isSignedIn={isSignedIn}
-            onSelectProfession={setSelectedProfession}
-          />
-          {selectedProfession && (
-            <ContractorsList
-              location="Ljubljana"
-              profession={[selectedProfession]}
-            />
-          )}
-        </View>
-        <FooterMenu />
+        <FlatList
+          data={[]}
+          renderItem={renderEmpty}
+          ListHeaderComponent={
+            <>
+              <ClientCarousel
+                images={images}
+                location="Ljubljana"
+                isSignedIn={isSignedIn}
+                onSelectProfession={setSelectedProfession}
+              />
+              {selectedProfession && (
+                <ContractorsList
+                  location="Ljubljana"
+                  profession={[selectedProfession]}
+                />
+              )}
+            </>
+          }
+          contentContainerStyle={styles.content}
+          ListFooterComponent={<FooterMenu />}
+        />
       </View>
     </SafeAreaView>
   );
@@ -61,10 +75,9 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: "space-between",
   },
   content: {
-    flex: 1,
+    paddingBottom: 120,
     paddingTop: 60,
   },
 });
