@@ -1,4 +1,5 @@
 // ChatComponent.tsx
+
 import React, { useState } from "react";
 import {
   View,
@@ -7,7 +8,6 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
-  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Chat, ChatGroup } from "../types";
@@ -33,27 +33,37 @@ export const ChatComponent = ({
   chats,
 }: ChatProps) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
 
   const groupedChats: ChatGroup[] = Object.values(
     chats.reduce<Record<string, ChatGroup>>((acc, msg) => {
-      const isSent = msg.receiverId === currentsenderId;
-      const groupId = isSent ? msg.senderId : msg.receiverId;
-      const groupName = isSent ? msg.senderName : msg.receiverName;
+      const isSentToMe = msg.receiverId === currentsenderId;
+      const groupId = isSentToMe ? msg.senderId : msg.receiverId;
+      const groupName = isSentToMe ? msg.senderName : msg.receiverName;
 
       if (!acc[groupId]) {
         acc[groupId] = {
           receiverId: groupId,
           receiverName: groupName,
           chats: [],
-          lastMessage: null,
+          lastMessage: msg,
           unreadCount: 0,
         };
       }
 
       acc[groupId].chats.push(msg);
-      acc[groupId].lastMessage = msg;
-      if (!msg.read) acc[groupId].unreadCount += 1;
+
+      // Update lastMessage if newer
+      if (
+        new Date(msg.date).getTime() >
+        new Date(acc[groupId].lastMessage.date).getTime()
+      ) {
+        acc[groupId].lastMessage = msg;
+      }
+
+      if (!msg.read && isSentToMe) {
+        acc[groupId].unreadCount += 1;
+      }
 
       return acc;
     }, {})
@@ -64,12 +74,11 @@ export const ChatComponent = ({
   );
 
   const selectedChat = groupedChats.find(
-    (chat) => chat.lastMessage?.id === selectedChatId
+    (chat) => chat.lastMessage.id === selectedChatId
   );
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <Text style={styles.title}>Inbox</Text>
 
       {/* Search */}
@@ -94,14 +103,12 @@ export const ChatComponent = ({
         keyExtractor={(item) => item.receiverId}
         renderItem={({ item }) => (
           <TouchableOpacity
-            onPress={() =>
-              setSelectedChatId(item.lastMessage?.id.toString() || "")
-            }
+            onPress={() => setSelectedChatId(item.lastMessage.id)}
             style={styles.chatItem}
           >
             <Text style={styles.chatName}>{item.receiverName}</Text>
             <Text numberOfLines={1} style={styles.lastMessage}>
-              {item.lastMessage?.chat}
+              {item.lastMessage?.text}
             </Text>
             {item.unreadCount > 0 && (
               <Text style={styles.unreadBadge}>{item.unreadCount}</Text>

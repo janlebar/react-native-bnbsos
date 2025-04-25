@@ -10,8 +10,7 @@ import {
   FlatList,
 } from "react-native";
 import { format, formatDistanceToNow } from "date-fns";
-import { Avatar, AvatarFallback } from "./Avatar";
-import MessageInput from "./MessageInput";
+import { MessageInput } from "./MessageInput";
 import { ChatGroup } from "../types";
 
 interface ChatDisplayProps {
