@@ -10,8 +10,9 @@ import {
   StyleSheet,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Chat, ChatGroup } from "../types";
-import { ChatDisplay } from "./chatDisplay";
+import { Chat, ChatMessage, ChatGroup } from "../types"; // Correct for named exports
+
+import ChatDisplay from "./chatDisplay";
 
 interface ChatProps {
   senderName?: string | null;
@@ -20,13 +21,13 @@ interface ChatProps {
   receiverId?: string;
   initialMessages: any[];
   accounts: any[];
-  chats: Chat[];
+  chats: ChatMessage[];
   defaultLayout?: number[];
   defaultCollapsed?: boolean;
   navCollapsedSize: number;
 }
 
-export const ChatComponent = ({
+const ChatComponent = ({
   senderName,
   receiverName,
   currentsenderId,
@@ -53,7 +54,6 @@ export const ChatComponent = ({
 
       acc[groupId].chats.push(msg);
 
-      // Update lastMessage if newer
       if (
         new Date(msg.date).getTime() >
         new Date(acc[groupId].lastMessage.date).getTime()
@@ -126,6 +126,8 @@ export const ChatComponent = ({
     </View>
   );
 };
+
+export default ChatComponent;
 
 const styles = StyleSheet.create({
   container: {

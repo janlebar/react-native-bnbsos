@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { getCurrentUser } from "../../../api/authapi"; // You may need to replace this with Expo-friendly auth
 import { getMessages } from "../../../api/chatapi";
-import { ChatComponent } from "./chat-component"; // Make sure this is React Native compatible
+import ChatComponent from "./chat-component";
 
 export default function Chats() {
   const [user, setUser] = useState<any>(null);

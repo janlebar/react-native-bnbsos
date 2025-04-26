@@ -1,6 +1,16 @@
-// Assuming something like this for ChatGroup:
-
 // types.ts
+
+export interface Chat {
+  id: number;
+  text: string;
+  date: string;
+  subject?: string;
+  read?: boolean;
+  senderId: string;
+  senderName: string;
+  receiverId: string;
+  receiverName: string;
+}
 
 export interface ChatMessage {
   id: number;
@@ -12,6 +22,8 @@ export interface ChatMessage {
     id: string;
     name: string;
   };
+  senderId: string;
+  senderName: string;
   receiverId: string;
   receiverName: string;
 }
@@ -24,7 +36,6 @@ export interface ChatGroup {
   unreadCount: number;
 }
 
-// Hook return (you might need to refine this depending on your actual hook)
 type ChatState = {
   selected?: string | number;
 };
@@ -32,3 +43,6 @@ type ChatState = {
 type SetChat = (chat: ChatState) => void;
 
 declare function useChat(): [ChatState, SetChat];
+
+// Default export the useChat hook if needed
+export default useChat;

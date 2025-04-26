@@ -1,3 +1,5 @@
+// Avatar.tsx
+
 import React from "react";
 import {
   View,
@@ -89,4 +91,11 @@ const styles = StyleSheet.create({
   },
 });
 
+const AvatarGroup = {
+  Root: Avatar,
+  Image: AvatarImage,
+  Fallback: AvatarFallback,
+};
+
+export default AvatarGroup;
 export { Avatar, AvatarImage, AvatarFallback };

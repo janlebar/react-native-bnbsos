@@ -15,10 +15,7 @@ interface MessageInputProps {
   receiverId?: string;
 }
 
-export function MessageInput({
-  currentsenderId,
-  receiverId,
-}: MessageInputProps) {
+const MessageInput = ({ currentsenderId, receiverId }: MessageInputProps) => {
   const [content, setContent] = useState("");
 
   const handleSubmit = async () => {
@@ -61,7 +58,9 @@ export function MessageInput({
       </View>
     </View>
   );
-}
+};
+
+export default MessageInput;
 
 const styles = StyleSheet.create({
   container: {
@@ -80,7 +79,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 8,
   },
   button: {
-    backgroundColor: "#3B82F6", // Tailwind's blue-500
+    backgroundColor: "#3B82F6",
     paddingHorizontal: 16,
     justifyContent: "center",
     borderTopRightRadius: 8,

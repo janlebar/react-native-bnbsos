@@ -1,5 +1,4 @@
 //chatDisplay.tsx
-
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -7,10 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
 } from "react-native";
-import { format, formatDistanceToNow } from "date-fns";
-import { MessageInput } from "./MessageInput";
+import { formatDistanceToNow } from "date-fns";
+import MessageInput from "./MessageInput";
 import { ChatGroup } from "../types";
 
 interface ChatDisplayProps {
@@ -18,13 +16,12 @@ interface ChatDisplayProps {
   currentsenderId?: string;
 }
 
-export const ChatDisplay = ({ chat, currentsenderId }: ChatDisplayProps) => {
+const ChatDisplay = ({ chat, currentsenderId }: ChatDisplayProps) => {
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(
     null
   );
 
   const markDisplayedMessageAsRead = async () => {
-    // Fake marking message as read
     console.log("Marking message as read");
   };
 
@@ -79,6 +76,8 @@ export const ChatDisplay = ({ chat, currentsenderId }: ChatDisplayProps) => {
     </View>
   );
 };
+
+export default ChatDisplay;
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
