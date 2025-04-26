@@ -14,6 +14,8 @@ import { Chat, ChatMessage, ChatGroup } from "../types"; // Correct for named ex
 
 import ChatDisplay from "./chatDisplay";
 
+import ChatList from "./chatList"; // Import ChatList here
+
 interface ChatProps {
   senderName?: string | null;
   receiverName?: string | null;
@@ -69,16 +71,13 @@ const ChatComponent = ({
     }, {})
   );
 
-  const filteredChats = groupedChats.filter((group) =>
-    group.receiverName?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const selectedChat = groupedChats.find(
     (chat) => chat.lastMessage.id === selectedChatId
   );
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <Text style={styles.title}>Inbox</Text>
 
       {/* Search */}
@@ -98,23 +97,10 @@ const ChatComponent = ({
       </View>
 
       {/* Chat List */}
-      <FlatList
-        data={filteredChats}
-        keyExtractor={(item) => item.receiverId}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => setSelectedChatId(item.lastMessage.id)}
-            style={styles.chatItem}
-          >
-            <Text style={styles.chatName}>{item.receiverName}</Text>
-            <Text numberOfLines={1} style={styles.lastMessage}>
-              {item.lastMessage?.text}
-            </Text>
-            {item.unreadCount > 0 && (
-              <Text style={styles.unreadBadge}>{item.unreadCount}</Text>
-            )}
-          </TouchableOpacity>
-        )}
+      <ChatList
+        chats={groupedChats}
+        searchQuery={searchQuery}
+        onSelectChat={(chatId) => setSelectedChatId(chatId)}
       />
 
       {/* Chat Display */}
@@ -154,28 +140,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 40,
-  },
-  chatItem: {
-    paddingVertical: 12,
-    borderBottomColor: "#eee",
-    borderBottomWidth: 1,
-  },
-  chatName: {
-    fontWeight: "600",
-  },
-  lastMessage: {
-    color: "#666",
-    marginTop: 2,
-  },
-  unreadBadge: {
-    color: "#fff",
-    backgroundColor: "#f44",
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    fontSize: 12,
-    alignSelf: "flex-start",
-    marginTop: 4,
   },
   chatDisplayContainer: {
     marginTop: 16,
