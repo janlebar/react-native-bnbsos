@@ -9,6 +9,7 @@ export interface UserCredentials {
   email: string;
   password: string;
   isContractor: boolean;
+  code?: string; // Optional code for two-factor authentication
 }
 
 export interface LoginResponse {

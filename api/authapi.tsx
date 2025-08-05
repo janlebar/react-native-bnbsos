@@ -5,17 +5,27 @@ import { UserCredentials, LoginResponse } from "./types";
 import { RegisterFormValues } from "./types";
 import { User } from "./types"; // Add this if you have a User type
 
-const API_URL = "https://your-nextjs-app.com"; // Replace with your actual Next.js app URL
+const API_URL = "http://localhost:3000/en"; // Replace with your actual Next.js app URL
 
 export const loginApi = async (
   credentials: UserCredentials
 ): Promise<LoginResponse> => {
   try {
-    const response = await axios.post(`${API_URL}/api/mobile/auth/login`, {
+    const requestData: any = {
       email: credentials.email,
       password: credentials.password,
       isContractor: credentials.isContractor,
-    });
+    };
+
+    // Add code if provided for two-factor authentication
+    if (credentials.code) {
+      requestData.code = credentials.code;
+    }
+
+    const response = await axios.post(
+      `${API_URL}/api/mobile/auth/login`,
+      requestData
+    );
 
     return response.data;
   } catch (error: any) {

@@ -28,8 +28,12 @@ export default function LoginForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [tempCredentials, setTempCredentials] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
 
-  const { control, handleSubmit, reset } = useForm<LoginFormValues>({
+  const { control, handleSubmit, reset, setValue } = useForm<LoginFormValues>({
     defaultValues: {
       email: "",
       password: "",
@@ -44,31 +48,75 @@ export default function LoginForm() {
     const email = values.email.trim().toLowerCase();
     const password = values.password.trim();
 
-    startTransition(() => {
-      loginApi({
-        email,
-        password,
-        isContractor,
-      })
-        .then(async (response) => {
-          if (response.twoFactorRequired) {
-            setShowTwoFactor(true);
-            return;
-          }
-          await saveToken(response.token);
-          setSuccess("Login successful!");
-          reset();
-          router.replace("/(auth)/home");
+    if (showTwoFactor) {
+      // Handle two-factor authentication
+      startTransition(() => {
+        if (!tempCredentials) {
+          setError("Please try logging in again");
+          setShowTwoFactor(false);
+          return;
+        }
+
+        loginApi({
+          email: tempCredentials.email,
+          password: tempCredentials.password,
+          isContractor,
+          code: values.code, // Add code to the API call
         })
-        .catch(() => setError("Invalid credentials or something went wrong"));
-    });
+          .then(async (response) => {
+            await saveToken(response.token);
+            setSuccess("Login successful!");
+            reset();
+            setTempCredentials(null);
+            setShowTwoFactor(false);
+            router.replace("/(auth)/home");
+          })
+          .catch((error) => {
+            setError(error.message || "Invalid two-factor code");
+          });
+      });
+    } else {
+      // Initial login attempt
+      startTransition(() => {
+        loginApi({
+          email,
+          password,
+          isContractor,
+        })
+          .then(async (response) => {
+            if (response.twoFactorRequired) {
+              setShowTwoFactor(true);
+              setTempCredentials({ email, password });
+              setValue("code", "");
+              return;
+            }
+            await saveToken(response.token);
+            setSuccess("Login successful!");
+            reset();
+            router.replace("/(auth)/home");
+          })
+          .catch((error) => {
+            setError(
+              error.message || "Invalid credentials or something went wrong"
+            );
+          });
+      });
+    }
   };
 
   const navigateToRegister = () => {
     router.push("/register");
   };
+
   const navigateToForgotPassword = () => {
     router.push("/reset-password");
+  };
+
+  const handleBackToLogin = () => {
+    setShowTwoFactor(false);
+    setTempCredentials(null);
+    setError("");
+    setSuccess("");
   };
 
   return (
@@ -81,7 +129,9 @@ export default function LoginForm() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.container}>
-          <Text style={styles.header}>Welcome Back</Text>
+          <Text style={styles.header}>
+            {showTwoFactor ? "Two-Factor Authentication" : "Welcome Back"}
+          </Text>
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
           {success ? <Text style={styles.success}>{success}</Text> : null}
@@ -91,38 +141,63 @@ export default function LoginForm() {
               <Controller
                 control={control}
                 name="email"
-                render={({ field: { onChange, value } }) => (
-                  <TextInput
-                    label="Email"
-                    value={value}
-                    onChangeText={onChange}
-                    disabled={isPending}
-                    autoCapitalize="none"
-                    style={styles.input}
-                    mode="flat"
-                    underlineColor="gray"
-                    activeUnderlineColor="black"
-                    textColor="black"
-                  />
+                rules={{
+                  required: "Email is required",
+                  pattern: {
+                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                    message: "Invalid email address",
+                  },
+                }}
+                render={({
+                  field: { onChange, value },
+                  fieldState: { error },
+                }) => (
+                  <View>
+                    <TextInput
+                      label="Email"
+                      value={value}
+                      onChangeText={onChange}
+                      disabled={isPending}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                      style={styles.input}
+                      mode="flat"
+                      underlineColor="gray"
+                      activeUnderlineColor="black"
+                      textColor="black"
+                    />
+                    {error && (
+                      <Text style={styles.fieldError}>{error.message}</Text>
+                    )}
+                  </View>
                 )}
               />
 
               <Controller
                 control={control}
                 name="password"
-                render={({ field: { onChange, value } }) => (
-                  <TextInput
-                    label="Password"
-                    value={value}
-                    onChangeText={onChange}
-                    disabled={isPending}
-                    secureTextEntry
-                    style={styles.input}
-                    mode="flat"
-                    underlineColor="gray"
-                    activeUnderlineColor="black"
-                    textColor="black"
-                  />
+                rules={{ required: "Password is required" }}
+                render={({
+                  field: { onChange, value },
+                  fieldState: { error },
+                }) => (
+                  <View>
+                    <TextInput
+                      label="Password"
+                      value={value}
+                      onChangeText={onChange}
+                      disabled={isPending}
+                      secureTextEntry
+                      style={styles.input}
+                      mode="flat"
+                      underlineColor="gray"
+                      activeUnderlineColor="black"
+                      textColor="black"
+                    />
+                    {error && (
+                      <Text style={styles.fieldError}>{error.message}</Text>
+                    )}
+                  </View>
                 )}
               />
 
@@ -147,24 +222,54 @@ export default function LoginForm() {
           )}
 
           {showTwoFactor && (
-            <Controller
-              control={control}
-              name="code"
-              render={({ field: { onChange, value } }) => (
-                <TextInput
-                  label="Two-Factor Code"
-                  value={value}
-                  onChangeText={onChange}
-                  disabled={isPending}
-                  style={styles.input}
-                  mode="flat"
-                  underlineColor="gray"
-                  activeUnderlineColor="black"
-                  textColor="black"
-                  placeholder="12345"
-                />
-              )}
-            />
+            <>
+              <Text style={styles.twoFactorText}>
+                Please enter the verification code sent to your email.
+              </Text>
+
+              <Controller
+                control={control}
+                name="code"
+                rules={{
+                  required: "Verification code is required",
+                  minLength: {
+                    value: 4,
+                    message: "Code must be at least 4 characters",
+                  },
+                }}
+                render={({
+                  field: { onChange, value },
+                  fieldState: { error },
+                }) => (
+                  <View>
+                    <TextInput
+                      label="Verification Code"
+                      value={value}
+                      onChangeText={onChange}
+                      disabled={isPending}
+                      style={styles.input}
+                      mode="flat"
+                      underlineColor="gray"
+                      activeUnderlineColor="black"
+                      textColor="black"
+                      placeholder="Enter your code"
+                      keyboardType="number-pad"
+                    />
+                    {error && (
+                      <Text style={styles.fieldError}>{error.message}</Text>
+                    )}
+                  </View>
+                )}
+              />
+
+              <TouchableOpacity
+                onPress={handleBackToLogin}
+                disabled={isPending}
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>Back to Login</Text>
+              </TouchableOpacity>
+            </>
           )}
 
           <Button
@@ -176,14 +281,16 @@ export default function LoginForm() {
             labelStyle={styles.buttonLabel}
             contentStyle={{ backgroundColor: "black" }}
           >
-            {showTwoFactor ? "Confirm" : "Login"}
+            {showTwoFactor ? "Verify Code" : "Login"}
           </Button>
 
-          <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
-            <Text style={styles.registerLink}>
-              Don't have an account? Register here!
-            </Text>
-          </TouchableOpacity>
+          {!showTwoFactor && (
+            <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
+              <Text style={styles.registerLink}>
+                Don't have an account? Register here!
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -206,12 +313,39 @@ const styles = StyleSheet.create({
     color: "black",
     textAlign: "center",
   },
-  input: { marginBottom: 16, backgroundColor: "transparent" },
-  button: { marginTop: 24, borderRadius: 8 },
-  buttonLabel: { color: "white", fontSize: 16, fontWeight: "bold" },
-  error: { color: "red", marginBottom: 16, textAlign: "center" },
-  success: { color: "green", marginBottom: 16, textAlign: "center" },
-  label: { color: "black", fontSize: 16 },
+  input: {
+    marginBottom: 16,
+    backgroundColor: "transparent",
+  },
+  button: {
+    marginTop: 24,
+    borderRadius: 8,
+  },
+  buttonLabel: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  error: {
+    color: "red",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  success: {
+    color: "green",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  fieldError: {
+    color: "red",
+    fontSize: 12,
+    marginTop: -12,
+    marginBottom: 8,
+  },
+  label: {
+    color: "black",
+    fontSize: 16,
+  },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -228,6 +362,21 @@ const styles = StyleSheet.create({
   forgotPasswordLink: {
     marginTop: 24,
     textAlign: "center",
+    color: "black",
+    fontSize: 16,
+    textDecorationLine: "underline",
+  },
+  twoFactorText: {
+    textAlign: "center",
+    color: "black",
+    fontSize: 16,
+    marginBottom: 24,
+  },
+  backButton: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  backButtonText: {
     color: "black",
     fontSize: 16,
     textDecorationLine: "underline",
