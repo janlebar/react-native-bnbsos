@@ -5,60 +5,68 @@ import { UserCredentials, LoginResponse } from "./types";
 import { RegisterFormValues } from "./types";
 import { User } from "./types"; // Add this if you have a User type
 
-const API_URL = "https://yourapi.com"; // Keep it here for future use
+const API_URL = "https://your-nextjs-app.com"; // Replace with your actual Next.js app URL
 
 export const loginApi = async (
   credentials: UserCredentials
 ): Promise<LoginResponse> => {
-  // Simulated fake login
-  if (
-    credentials.email === "test@test.com" &&
-    credentials.password === "password"
-  ) {
-    // Fake logic to trigger two-factor if email contains '2fa'
-    const twoFactorRequired = credentials.email.includes("2fa");
-
-    // Return a fake response with token, twoFactorRequired, and isContractor
-    return Promise.resolve({
-      token: "fake-jwt-token-123",
-      twoFactorRequired,
+  try {
+    const response = await axios.post(`${API_URL}/api/mobile/auth/login`, {
+      email: credentials.email,
+      password: credentials.password,
       isContractor: credentials.isContractor,
     });
-  } else {
-    // Simulate a failed login
-    return Promise.reject("Invalid credentials");
+
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw new Error("Login failed");
   }
 };
 
-// Fake register API
+// Real register API
 type RegisterResponse = {
   token: string;
   isContractor: boolean;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
 };
 
 export const registerApi = async (
   data: RegisterFormValues & { isContractor: boolean }
 ): Promise<RegisterResponse> => {
-  // Simulate delay
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  // You could simulate errors for certain emails if needed
-  if (data.email === "fail@test.com") {
-    return Promise.reject("Email already exists");
+  try {
+    const response = await axios.post(
+      `${API_URL}/api/mobile/auth/register`,
+      data
+    );
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw new Error("Registration failed");
   }
-
-  return Promise.resolve({
-    token: "fake-register-token-456",
-    isContractor: data.isContractor,
-  });
 };
 
-// Fake password reset API
+// Real password reset API
 export const resetApi = async ({ email }: { email: string }) => {
-  if (email === "test@test.com") {
-    return Promise.resolve("Reset email sent");
-  } else {
-    return Promise.reject("Email not found");
+  try {
+    const response = await axios.post(`${API_URL}/api/mobile/auth/reset`, {
+      email,
+    });
+    return response.data.message;
+  } catch (error: any) {
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw new Error("Password reset failed");
   }
 };
 
@@ -90,70 +98,46 @@ export const getContractorsByLocationAndProfession = async (
   contractorLocation: string,
   profession: string[]
 ): Promise<Contractor[]> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      if (!contractorLocation || !profession.length) {
-        resolve([]);
-        return;
-      }
+  try {
+    if (!contractorLocation || !profession.length) {
+      return [];
+    }
 
-      // Fake data
-      const mockData: Contractor[] = [
-        {
-          id: 1,
-          name: "Alice Builder",
-          rating: 8.7,
-          specialization: "Plumber",
-          description: "Experienced and reliable plumber.",
-          certifications: ["Plumber", "Pipe Fitter"],
-          availability: "Weekdays",
-          yearsOfExperience: 10,
-          address: "123 Main St",
-          city: contractorLocation,
-          imageId: "https://randomuser.me/api/portraits/women/1.jpg",
-          user: { email: "alice@example.com" },
-          phone: "555-1234",
-        },
-        {
-          id: 2,
-          name: "Bob Electrician",
-          rating: 9.2,
-          specialization: "Electrician",
-          description: "Certified electrician with over a decade of work.",
-          certifications: ["Electrician"],
-          availability: "Weekends",
-          yearsOfExperience: 12,
-          address: "456 Oak Ave",
-          city: contractorLocation,
-          imageId: "https://randomuser.me/api/portraits/men/2.jpg",
-          user: { email: "bob@example.com" },
-          phone: "555-5678",
-        },
-      ];
+    const professionParam = profession.join(",");
+    const response = await axios.get(
+      `${API_URL}/api/mobile/contractors?location=${encodeURIComponent(
+        contractorLocation
+      )}&profession=${encodeURIComponent(professionParam)}`
+    );
 
-      // Filter by certifications
-      const filtered = mockData.filter((contractor) =>
-        contractor.certifications.some((cert) => profession.includes(cert))
-      );
-
-      resolve(filtered);
-    }, 1000); // simulate 1s network delay
-  });
+    return response.data;
+  } catch (error: any) {
+    console.error("Error fetching contractors:", error);
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
+    }
+    throw new Error("Failed to fetch contractors");
+  }
 };
 
-//Fake CurrentUrer api
-
-export const getCurrentUser = async (): Promise<User | null> => {
-  // Simulated user session
-  await new Promise((resolve) => setTimeout(resolve, 500)); // simulate latency
-
-  // Return a fake logged-in user
-  return {
-    id: "user-123",
-    name: "Test User",
-    email: "test@test.com",
-    isContractor: false,
-  };
+// Real CurrentUser API
+export const getCurrentUser = async (token: string): Promise<User | null> => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/api/mobile/auth/current-user`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    return response.data.user;
+  } catch (error: any) {
+    if (error.response?.status === 401) {
+      return null; // User not authenticated
+    }
+    throw new Error("Failed to get current user");
+  }
 };
 
 // import axios from "axios";
