@@ -1,61 +1,170 @@
 // src/api/auth.ts
 
-import axios from "axios";
+import axios, { AxiosResponse } from "axios";
 import { UserCredentials, LoginResponse } from "./types";
 import { RegisterFormValues } from "./types";
-import { User } from "./types"; // Add this if you have a User type
+import { User } from "./types";
 
-const API_URL = "http://localhost:3000/en"; // Replace with your actual Next.js app URL
+const API_URL = "http://localhost:3000/api"; // Replace with your actual Next.js app URL
 
+// Create axios instance with default config for NextAuth
+const api = axios.create({
+  baseURL: API_URL,
+  withCredentials: true, // Important for NextAuth session cookies
+});
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+  isContractor: boolean;
+}
+
+interface AuthResponse {
+  user: User;
+  success: boolean;
+}
+
+interface UserInfo {
+  user?: User;
+  expires?: string;
+}
+
+// NextAuth implementation
+class AuthService {
+  private async getCsrfToken(): Promise<string> {
+    const { data: csrfRequest } = await api.get("/auth/csrf", {
+      withCredentials: true,
+    });
+    return csrfRequest.csrfToken;
+  }
+
+  private async performLogin(
+    credentials: LoginCredentials,
+    csrfToken: string
+  ): Promise<AxiosResponse> {
+    const body = this.createLoginBody(credentials, csrfToken);
+    return api.post("/auth/callback/credentials", body, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      withCredentials: true,
+    });
+  }
+
+  private createLoginBody(
+    credentials: LoginCredentials,
+    csrfToken: string
+  ): string {
+    return Object.entries({
+      csrfToken,
+      email: encodeURIComponent(credentials.email),
+      password: encodeURIComponent(credentials.password),
+      isContractor: credentials.isContractor,
+      callbackUrl: encodeURIComponent("/"),
+      redirect: false,
+      json: true,
+    })
+      .map(([key, value]) => `${key}=${value}`)
+      .join("&");
+  }
+
+  private async getUserInfo(): Promise<UserInfo> {
+    const { data: userInfo } = await api.get<UserInfo>("/auth/session");
+    return userInfo;
+  }
+
+  private handleSuccessfulLogin(
+    userInfo: UserInfo,
+    email: string
+  ): AuthResponse {
+    if (userInfo.user) {
+      return {
+        user: userInfo.user,
+        success: true,
+      };
+    }
+    throw new Error("Login failed - no user info returned");
+  }
+
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    try {
+      const csrfToken = await this.getCsrfToken();
+      const loginResponse = await this.performLogin(credentials, csrfToken);
+
+      if (loginResponse.status === 200) {
+        const userInfo = await this.getUserInfo();
+        return this.handleSuccessfulLogin(userInfo, credentials.email);
+      }
+
+      throw new Error("Login failed");
+    } catch (error: any) {
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      }
+      throw new Error(error.message || "Login failed");
+    }
+  }
+
+  async logout(): Promise<void> {
+    try {
+      const csrfToken = await this.getCsrfToken();
+      await api.post(
+        "/auth/signout",
+        {
+          csrfToken,
+        },
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        }
+      );
+    } catch (error: any) {
+      console.error("Logout error:", error);
+      throw new Error("Logout failed");
+    }
+  }
+
+  async getSession(): Promise<UserInfo> {
+    try {
+      return await this.getUserInfo();
+    } catch (error: any) {
+      throw new Error("Failed to get session");
+    }
+  }
+}
+
+const authService = new AuthService();
+
+// Updated loginApi to use NextAuth
 export const loginApi = async (
   credentials: UserCredentials
 ): Promise<LoginResponse> => {
   try {
-    const requestData: any = {
+    const authResponse = await authService.login({
       email: credentials.email,
       password: credentials.password,
       isContractor: credentials.isContractor,
+    });
+
+    // NextAuth doesn't use tokens in the same way, but we'll simulate the response
+    // for compatibility with existing code
+    return {
+      token: "nextauth-session", // Placeholder - NextAuth uses HTTP-only cookies
+      twoFactorRequired: false, // NextAuth 2FA would be handled differently
+      isContractor: authResponse.user.isContractor,
     };
-
-    // Add code if provided for two-factor authentication
-    if (credentials.code) {
-      requestData.code = credentials.code;
-    }
-
-    const response = await axios.post(
-      `${API_URL}/api/mobile/auth/login`,
-      requestData
-    );
-
-    return response.data;
   } catch (error: any) {
-    if (error.response?.data?.error) {
-      throw new Error(error.response.data.error);
-    }
-    throw new Error("Login failed");
+    throw error;
   }
 };
 
-// Real register API
-type RegisterResponse = {
-  token: string;
-  isContractor: boolean;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  };
-};
-
+// Register API - may need to be updated based on your NextAuth setup
 export const registerApi = async (
   data: RegisterFormValues & { isContractor: boolean }
-): Promise<RegisterResponse> => {
+): Promise<any> => {
   try {
-    const response = await axios.post(
-      `${API_URL}/api/mobile/auth/register`,
-      data
-    );
+    const response = await api.post("/api/auth/register", data);
     return response.data;
   } catch (error: any) {
     if (error.response?.data?.error) {
@@ -65,12 +174,10 @@ export const registerApi = async (
   }
 };
 
-// Real password reset API
+// Password reset API
 export const resetApi = async ({ email }: { email: string }) => {
   try {
-    const response = await axios.post(`${API_URL}/api/mobile/auth/reset`, {
-      email,
-    });
+    const response = await api.post("/api/auth/reset", { email });
     return response.data.message;
   } catch (error: any) {
     if (error.response?.data?.error) {
@@ -80,8 +187,7 @@ export const resetApi = async ({ email }: { email: string }) => {
   }
 };
 
-// src/api/auth.ts
-
+// Contractor interfaces and API
 export interface Contractor {
   id: number;
   name: string;
@@ -114,8 +220,8 @@ export const getContractorsByLocationAndProfession = async (
     }
 
     const professionParam = profession.join(",");
-    const response = await axios.get(
-      `${API_URL}/api/mobile/contractors?location=${encodeURIComponent(
+    const response = await api.get(
+      `/api/mobile/contractors?location=${encodeURIComponent(
         contractorLocation
       )}&profession=${encodeURIComponent(professionParam)}`
     );
@@ -130,37 +236,15 @@ export const getContractorsByLocationAndProfession = async (
   }
 };
 
-// Real CurrentUser API
-export const getCurrentUser = async (token: string): Promise<User | null> => {
+// Current user API using NextAuth session
+export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    const response = await axios.get(
-      `${API_URL}/api/mobile/auth/current-user`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-    return response.data.user;
+    const userInfo = await authService.getSession();
+    return userInfo.user || null;
   } catch (error: any) {
-    if (error.response?.status === 401) {
-      return null; // User not authenticated
-    }
-    throw new Error("Failed to get current user");
+    return null; // User not authenticated
   }
 };
 
-// import axios from "axios";
-// import { UserCredentials, LoginResponse } from "../../types/auth";
-
-// const API_URL = "https://yourapi.com";
-
-// export const loginApi = async (
-//   credentials: UserCredentials
-// ): Promise<string> => {
-//   const response = await axios.post<LoginResponse>(
-//     `${API_URL}/login`,
-//     credentials
-//   );
-//   return response.data.token;
-// };
+// Export the auth service for direct use if needed
+export { authService };

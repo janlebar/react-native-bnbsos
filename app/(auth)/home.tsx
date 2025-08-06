@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ClientCarousel from "../../components/ClientCarousel";
 import { getCarouselImages } from "../../data/carouselData";
-import { auth } from "../../lib/auth";
+import { AuthManager } from "../../lib/auth";
 import { SvgProps } from "react-native-svg";
 import FooterMenu from "../user/footerMenu";
 import ContractorsList from "../contractors/contractors";
@@ -27,8 +27,8 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchData() {
-      const session = await auth();
-      setIsSignedIn(!!session);
+      const isAuthenticated = await AuthManager.isAuthenticated();
+      setIsSignedIn(isAuthenticated);
       const imgs = getCarouselImages();
       setImages(imgs);
     }

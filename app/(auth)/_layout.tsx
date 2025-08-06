@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Stack, useRouter } from "expo-router";
-import { auth } from "../../lib/auth";
+import { AuthManager } from "../../lib/auth";
 
 export default function AuthenticatedLayout() {
   const [isAuth, setIsAuth] = useState<boolean | null>(null);
@@ -8,8 +8,8 @@ export default function AuthenticatedLayout() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const session = await auth();
-      if (!session) {
+      const isAuthenticated = await AuthManager.isAuthenticated();
+      if (!isAuthenticated) {
         router.replace("/login");
       } else {
         setIsAuth(true);

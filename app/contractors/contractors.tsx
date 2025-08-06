@@ -17,7 +17,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 
 import { getContractorsByLocationAndProfession } from "../../api/authapi";
-import { auth } from "../../lib/auth"; // adjust the path to your actual file
+import { AuthManager } from "../../lib/auth"; // adjust the path to your actual file
 
 interface ContractorsListProps {
   location: string;
@@ -32,8 +32,8 @@ export default function ContractorsList({
 
   useEffect(() => {
     const checkAuth = async () => {
-      const session = await auth();
-      setIsSignedIn(!!session);
+      const isAuthenticated = await AuthManager.isAuthenticated();
+      setIsSignedIn(isAuthenticated);
     };
     checkAuth();
   }, []);
