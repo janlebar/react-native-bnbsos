@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,160 +6,281 @@ import {
   Dimensions,
   TouchableOpacity,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
-
+import { useRouter } from "expo-router";
 import LeftPanel from "./LeftPanel";
 import MiddlePanel from "./MiddlePanel";
 import RightPanel from "./RightPanel";
-
-const { width } = Dimensions.get("window");
+import { Ionicons } from "@expo/vector-icons";
 
 interface ChatLayoutProps {
-  currentUserId: string;
-  currentUserName: string | null;
   contacts: any[];
   conversations: any[];
-  messages: any[];
-  selectedContactId: string | null;
-  selectedConversationId: string | null;
+  currentUserId: string;
+  currentUserName: string | null;
+  selectedContactId?: string | null;
+  selectedConversationId?: string | null;
   conversation?: any;
-  isMobile?: boolean;
 }
 
+type PanelType = "contacts" | "conversations" | "messages";
+
 export default function ChatLayout({
-  currentUserId,
-  currentUserName,
   contacts,
   conversations,
-  messages,
+  currentUserId,
+  currentUserName,
   selectedContactId,
   selectedConversationId,
   conversation,
-  isMobile = true,
 }: ChatLayoutProps) {
   const router = useRouter();
-  const params = useLocalSearchParams();
+  const [activePanel, setActivePanel] = useState<PanelType>("contacts");
+  const { width } = Dimensions.get("window");
+  const isMobile = width < 768;
 
-  // For mobile, we show different panels based on navigation state
-  const showingContactsPanel = !selectedContactId;
-  const showingConversationsPanel =
-    selectedContactId && !selectedConversationId;
-  const showingMessagesPanel = selectedContactId && selectedConversationId;
+  // Auto-navigate to appropriate panel based on selection
+  useEffect(() => {
+    if (!isMobile) return;
 
-  // Mobile layout with conditional panel rendering
-  if (isMobile) {
+    if (selectedConversationId) {
+      setActivePanel("messages");
+    } else if (selectedContactId) {
+      setActivePanel("conversations");
+    } else {
+      setActivePanel("contacts");
+    }
+  }, [selectedContactId, selectedConversationId, isMobile]);
+
+  const handleSelectContact = (contactId: string) => {
+    if (isMobile) {
+      setActivePanel("conversations");
+    }
+    router.push(`/chat/${contactId}`);
+  };
+
+  const handleSelectConversation = (
+    conversationId: string,
+    contactId: string
+  ) => {
+    if (isMobile) {
+      setActivePanel("messages");
+    }
+    router.push(`/chat/${contactId}/${conversationId}`);
+  };
+
+  const handleBack = () => {
+    if (activePanel === "messages") {
+      setActivePanel("conversations");
+      if (selectedContactId) {
+        router.push(`/chat/${selectedContactId}`);
+      }
+    } else if (activePanel === "conversations") {
+      setActivePanel("contacts");
+      router.push("/chat");
+    }
+  };
+
+  const getHeaderTitle = () => {
+    switch (activePanel) {
+      case "contacts":
+        return "Contacts";
+      case "conversations":
+        const contact = contacts.find((c) => c.id === selectedContactId);
+        return contact?.name || contact?.email || "Conversations";
+      case "messages":
+        const conv = conversations.find((c) => c.id === selectedConversationId);
+        return conv?.subject || "Messages";
+      default:
+        return "Chat";
+    }
+  };
+
+  const renderMobileNavigation = () => (
+    <View style={styles.mobileNav}>
+      <TouchableOpacity
+        style={[
+          styles.navButton,
+          activePanel === "contacts" && styles.activeNavButton,
+        ]}
+        onPress={() => setActivePanel("contacts")}
+      >
+        <Ionicons
+          name="people"
+          size={20}
+          color={activePanel === "contacts" ? "#007AFF" : "#666"}
+        />
+        <Text
+          style={[
+            styles.navButtonText,
+            activePanel === "contacts" && styles.activeNavButtonText,
+          ]}
+        >
+          Contacts
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.navButton,
+          activePanel === "conversations" && styles.activeNavButton,
+        ]}
+        onPress={() => setActivePanel("conversations")}
+        disabled={!selectedContactId}
+      >
+        <Ionicons
+          name="chatbubbles"
+          size={20}
+          color={activePanel === "conversations" ? "#007AFF" : "#666"}
+        />
+        <Text
+          style={[
+            styles.navButtonText,
+            activePanel === "conversations" && styles.activeNavButtonText,
+          ]}
+        >
+          Conversations
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.navButton,
+          activePanel === "messages" && styles.activeNavButton,
+        ]}
+        onPress={() => setActivePanel("messages")}
+        disabled={!selectedConversationId}
+      >
+        <Ionicons
+          name="chatbubble"
+          size={20}
+          color={activePanel === "messages" ? "#007AFF" : "#666"}
+        />
+        <Text
+          style={[
+            styles.navButtonText,
+            activePanel === "messages" && styles.activeNavButtonText,
+          ]}
+        >
+          Messages
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderMobileHeader = () => (
+    <View style={styles.mobileHeader}>
+      {(activePanel === "conversations" || activePanel === "messages") && (
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+        </TouchableOpacity>
+      )}
+      <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+    </View>
+  );
+
+  // Desktop layout
+  if (!isMobile) {
     return (
-      <View style={styles.container}>
-        {/* Mobile Header with Back Navigation */}
-        {(selectedContactId || selectedConversationId) && (
-          <View style={styles.mobileHeader}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => {
-                if (selectedConversationId) {
-                  // Go back to conversations
-                  router.push(`/chat/${selectedContactId}`);
-                } else if (selectedContactId) {
-                  // Go back to contacts
-                  router.push("/chat");
-                }
-              }}
-            >
-              <Ionicons name="arrow-back" size={24} color="#000" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>
-              {selectedConversationId
-                ? "Messages"
-                : selectedContactId
-                ? "Conversations"
-                : "Contacts"}
-            </Text>
-          </View>
-        )}
+      <View style={styles.desktopContainer}>
+        <View style={styles.desktopLeftPanel}>
+          <LeftPanel
+            contacts={contacts}
+            currentUserId={currentUserId}
+            selectedContactId={selectedContactId || null}
+          />
+        </View>
 
-        {/* Mobile Content Area */}
-        <View style={styles.contentArea}>
-          {showingContactsPanel ? (
-            // Show Contacts Panel
-            <LeftPanel
-              contacts={contacts}
-              currentUserId={currentUserId}
-              selectedContactId={selectedContactId}
-              isMobile={true}
-            />
-          ) : showingConversationsPanel ? (
-            // Show Conversations Panel
+        {selectedContactId && (
+          <View style={styles.desktopMiddlePanel}>
             <MiddlePanel
               conversations={conversations}
               currentUserId={currentUserId}
               selectedContactId={selectedContactId}
-              selectedConversationId={selectedConversationId}
-              isMobile={true}
+              selectedConversationId={selectedConversationId || null}
             />
-          ) : showingMessagesPanel ? (
-            // Show Messages Panel
+          </View>
+        )}
+
+        {selectedConversationId && (
+          <View style={styles.desktopRightPanel}>
             <RightPanel
-              messages={messages}
+              messages={conversation?.Chat || []}
               currentUserId={currentUserId}
               currentUserName={currentUserName}
               selectedConversationId={selectedConversationId}
-              selectedContactId={selectedContactId}
+              selectedContactId={selectedContactId || null}
               conversation={conversation}
-              isMobile={true}
             />
-          ) : null}
-        </View>
+          </View>
+        )}
       </View>
     );
   }
 
-  // Tablet/Desktop layout (side by side panels)
+  // Mobile layout
   return (
-    <View style={styles.container}>
-      <View style={styles.desktopLayout}>
-        {/* Left Panel - Contacts */}
-        <View style={styles.leftPanel}>
+    <View style={styles.mobileContainer}>
+      {renderMobileHeader()}
+      {renderMobileNavigation()}
+
+      <View style={styles.mobileContent}>
+        {activePanel === "contacts" && (
           <LeftPanel
             contacts={contacts}
             currentUserId={currentUserId}
-            selectedContactId={selectedContactId}
-            isMobile={false}
+            selectedContactId={selectedContactId || null}
           />
-        </View>
+        )}
 
-        {/* Middle Panel - Conversations */}
-        <View style={styles.middlePanel}>
+        {activePanel === "conversations" && selectedContactId && (
           <MiddlePanel
             conversations={conversations}
             currentUserId={currentUserId}
             selectedContactId={selectedContactId}
-            selectedConversationId={selectedConversationId}
-            isMobile={false}
+            selectedConversationId={selectedConversationId || null}
           />
-        </View>
+        )}
 
-        {/* Right Panel - Messages */}
-        <View style={styles.rightPanel}>
+        {activePanel === "messages" && selectedConversationId && (
           <RightPanel
-            messages={messages}
+            messages={conversation?.Chat || []}
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             selectedConversationId={selectedConversationId}
-            selectedContactId={selectedContactId}
+            selectedContactId={selectedContactId || null}
             conversation={conversation}
-            isMobile={false}
           />
-        </View>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  // Desktop styles
+  desktopContainer: {
     flex: 1,
-    backgroundColor: "#fff",
+    flexDirection: "row",
+    height: "100%",
+  },
+  desktopLeftPanel: {
+    width: 250,
+    borderRightWidth: 1,
+    borderRightColor: "#e5e7eb",
+  },
+  desktopMiddlePanel: {
+    width: 300,
+    borderRightWidth: 1,
+    borderRightColor: "#e5e7eb",
+  },
+  desktopRightPanel: {
+    flex: 1,
+  },
+
+  // Mobile styles
+  mobileContainer: {
+    flex: 1,
+    height: "100%",
   },
   mobileHeader: {
     flexDirection: "row",
@@ -167,36 +288,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomColor: "#e5e7eb",
     backgroundColor: "#fff",
   },
   backButton: {
-    marginRight: 16,
+    marginRight: 12,
     padding: 4,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#000",
+    color: "#1f2937",
   },
-  contentArea: {
-    flex: 1,
+  mobileNav: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
   },
-  desktopLayout: {
+  navButton: {
     flex: 1,
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
   },
-  leftPanel: {
-    width: 280,
-    borderRightWidth: 1,
-    borderRightColor: "#eee",
+  activeNavButton: {
+    backgroundColor: "#f3f4f6",
   },
-  middlePanel: {
-    width: 320,
-    borderRightWidth: 1,
-    borderRightColor: "#eee",
+  navButtonText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
   },
-  rightPanel: {
+  activeNavButtonText: {
+    color: "#007AFF",
+    fontWeight: "600",
+  },
+  mobileContent: {
     flex: 1,
+    height: "100%",
   },
 });

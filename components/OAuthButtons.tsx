@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 interface OAuthButtonsProps {
   isContractor: boolean;
   disabled?: boolean;
+  onSuccess?: (userData: any) => void;
 }
 
 interface OAuthProvider {
@@ -23,6 +24,7 @@ const OAUTH_PROVIDERS: OAuthProvider[] = [
 export default function OAuthButtons({
   isContractor,
   disabled,
+  onSuccess,
 }: OAuthButtonsProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const router = useRouter();
@@ -34,8 +36,14 @@ export default function OAuthButtons({
       const user = await AuthManager.signInWithOAuth(provider);
 
       if (user) {
-        Alert.alert("Success", `Welcome ${user.name}!`);
-        router.replace("/(auth)/home");
+        if (onSuccess) {
+          // Use the onSuccess callback if provided
+          onSuccess(user);
+        } else {
+          // Fallback to default behavior
+          Alert.alert("Success", `Welcome ${user.name}!`);
+          router.replace("/(auth)/home");
+        }
       }
     } catch (error: any) {
       console.error(`OAuth login error for ${provider}:`, error);
@@ -100,10 +108,10 @@ const styles = StyleSheet.create({
   },
   oauthButton: {
     borderColor: "#ddd",
-    backgroundColor: "white",
+    borderWidth: 1,
   },
   oauthButtonLabel: {
-    color: "black",
-    fontSize: 14,
+    color: "#333",
+    fontSize: 16,
   },
 });

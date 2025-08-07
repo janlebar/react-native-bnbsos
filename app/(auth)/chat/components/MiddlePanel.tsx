@@ -6,9 +6,13 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+
+const { width, height } = Dimensions.get("window");
+const isMobile = width < 768;
 
 interface MiddlePanelProps {
   conversations: any[];
@@ -18,21 +22,23 @@ interface MiddlePanelProps {
   isMobile?: boolean;
 }
 
-// Format time for display
 const formatTime = (dateString: string) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInMs = now.getTime() - date.getTime();
-  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMinutes = (now.getTime() - date.getTime()) / (1000 * 60);
 
-  if (diffInDays === 0) {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } else if (diffInDays === 1) {
-    return "Yesterday";
-  } else if (diffInDays < 7) {
-    return `${diffInDays} days ago`;
-  } else {
-    return date.toLocaleDateString();
+    if (diffInMinutes < 1) {
+      return "now";
+    } else if (diffInMinutes < 60) {
+      return `${Math.floor(diffInMinutes)} min`;
+    } else if (diffInMinutes < 1440) {
+      return `${Math.floor(diffInMinutes / 60)}h`;
+    } else {
+      return `${Math.floor(diffInMinutes / 1440)}d`;
+    }
+  } catch (error) {
+    return "";
   }
 };
 
@@ -41,10 +47,12 @@ export default function MiddlePanel({
   currentUserId,
   selectedContactId,
   selectedConversationId,
-  isMobile = false,
+  isMobile: propIsMobile = false,
 }: MiddlePanelProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
   const router = useRouter();
+  const mobile = propIsMobile || isMobile;
 
   const handleSelectConversation = (conversationId: string) => {
     if (selectedContactId) {
@@ -52,159 +60,222 @@ export default function MiddlePanel({
     }
   };
 
-  // Filter conversations based on search and selected contact
+  // Filter conversations based on search and tab
   const filteredConversations = conversations.filter((conversation) => {
-    // Only show conversations for the selected contact
-    if (selectedContactId && conversation.contact_id !== selectedContactId) {
-      return false;
+    // Text search filter
+    const searchMatch =
+      conversation.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      conversation.lastMessage?.text
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase()) ||
+      false;
+
+    // Tab filter
+    if (activeTab === "unread") {
+      const hasUnread = conversation.unreadCount > 0;
+      return searchQuery ? searchMatch && hasUnread : hasUnread;
     }
 
-    // Apply search filter
-    if (searchQuery) {
-      const contactName =
-        conversation.User?.name || conversation.Contractor?.user?.name || "";
-      const lastMessageText = conversation.Chat?.[0]?.text || "";
-      const query = searchQuery.toLowerCase();
-
-      return (
-        contactName.toLowerCase().includes(query) ||
-        lastMessageText.toLowerCase().includes(query)
-      );
-    }
-
-    return true;
+    return searchQuery ? searchMatch : true;
   });
 
   const renderConversation = ({ item }: { item: any }) => {
-    const contactName =
-      item.User?.name || item.Contractor?.user?.name || "Unknown";
-    const lastMessage = item.Chat?.[0];
-    const unreadCount =
-      item.Chat?.filter(
-        (chat: any) => !chat.read && chat.sender_id !== currentUserId
-      ).length || 0;
+    const isSelected = selectedConversationId === item.id;
+    const lastMessage = item.lastMessage;
+    const unreadCount = item.unreadCount || 0;
 
     return (
       <TouchableOpacity
         style={[
           styles.conversationItem,
-          selectedConversationId === item.id && styles.selectedConversation,
-          isMobile && styles.conversationItemMobile,
+          isSelected && styles.selectedConversation,
+          mobile && styles.conversationItemMobile,
         ]}
         onPress={() => handleSelectConversation(item.id)}
+        activeOpacity={0.7}
       >
         <View style={styles.conversationContent}>
+          {/* Conversation Header */}
           <View style={styles.conversationHeader}>
             <Text
-              style={[styles.contactName, isMobile && styles.contactNameMobile]}
+              style={[
+                styles.conversationSubject,
+                mobile && styles.conversationSubjectMobile,
+              ]}
+              numberOfLines={1}
             >
-              {contactName}
+              {item.subject || "Untitled Conversation"}
             </Text>
             {lastMessage && (
               <Text
-                style={[styles.timeText, isMobile && styles.timeTextMobile]}
+                style={[
+                  styles.conversationTime,
+                  mobile && styles.conversationTimeMobile,
+                ]}
               >
                 {formatTime(lastMessage.date)}
               </Text>
             )}
           </View>
 
+          {/* Last Message */}
           {lastMessage && (
             <Text
-              style={[
-                styles.lastMessageText,
-                isMobile && styles.lastMessageTextMobile,
-              ]}
+              style={[styles.lastMessage, mobile && styles.lastMessageMobile]}
               numberOfLines={2}
             >
               {lastMessage.text}
             </Text>
           )}
+
+          {/* Unread indicator */}
+          {unreadCount > 0 && (
+            <View style={styles.unreadIndicator}>
+              <View
+                style={[styles.unreadDot, mobile && styles.unreadDotMobile]}
+              />
+              <Text
+                style={[styles.unreadText, mobile && styles.unreadTextMobile]}
+              >
+                {unreadCount} unread
+              </Text>
+            </View>
+          )}
         </View>
 
-        {unreadCount > 0 && (
-          <View
-            style={[styles.unreadBadge, isMobile && styles.unreadBadgeMobile]}
-          >
-            <Text
-              style={[
-                styles.unreadBadgeText,
-                isMobile && styles.unreadBadgeTextMobile,
-              ]}
+        {/* Status indicators */}
+        <View style={styles.conversationStatus}>
+          {unreadCount > 0 && (
+            <View
+              style={[styles.unreadBadge, mobile && styles.unreadBadgeMobile]}
             >
-              {unreadCount}
-            </Text>
-          </View>
-        )}
+              <Text
+                style={[
+                  styles.unreadBadgeText,
+                  mobile && styles.unreadBadgeTextMobile,
+                ]}
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </Text>
+            </View>
+          )}
+          <Ionicons
+            name="chevron-forward"
+            size={mobile ? 16 : 20}
+            color="#cbd5e1"
+          />
+        </View>
       </TouchableOpacity>
     );
   };
 
   return (
-    <View style={[styles.container, isMobile && styles.containerMobile]}>
-      {/* Header with Tabs */}
-      <View style={[styles.header, isMobile && styles.headerMobile]}>
-        <View style={styles.tabsContainer}>
-          <TouchableOpacity style={[styles.tab, styles.activeTab]}>
-            <Text
-              style={[
-                styles.tabText,
-                styles.activeTabText,
-                isMobile && styles.tabTextMobile,
-              ]}
-            >
-              All Chat
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.tab}>
-            <Text style={[styles.tabText, isMobile && styles.tabTextMobile]}>
-              Unread
-            </Text>
-          </TouchableOpacity>
-        </View>
+    <View style={[styles.container, mobile && styles.containerMobile]}>
+      {/* Tabs */}
+      <View
+        style={[styles.tabsContainer, mobile && styles.tabsContainerMobile]}
+      >
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === "all" && styles.activeTab,
+            mobile && styles.tabMobile,
+          ]}
+          onPress={() => setActiveTab("all")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "all" && styles.activeTabText,
+              mobile && styles.tabTextMobile,
+            ]}
+          >
+            All Chat
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.tab,
+            activeTab === "unread" && styles.activeTab,
+            mobile && styles.tabMobile,
+          ]}
+          onPress={() => setActiveTab("unread")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "unread" && styles.activeTabText,
+              mobile && styles.tabTextMobile,
+            ]}
+          >
+            Unread
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Search */}
+      {/* Search Bar */}
       <View
-        style={[
-          styles.searchContainer,
-          isMobile && styles.searchContainerMobile,
-        ]}
+        style={[styles.searchContainer, mobile && styles.searchContainerMobile]}
       >
         <Ionicons
           name="search"
-          size={isMobile ? 16 : 18}
-          color="#666"
+          size={mobile ? 16 : 20}
+          color="#64748b"
           style={styles.searchIcon}
         />
         <TextInput
-          style={[styles.searchInput, isMobile && styles.searchInputMobile]}
+          style={[styles.searchInput, mobile && styles.searchInputMobile]}
           placeholder="Search conversations..."
+          placeholderTextColor="#64748b"
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor="#999"
         />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity
+            onPress={() => setSearchQuery("")}
+            style={styles.clearButton}
+          >
+            <Ionicons
+              name="close-circle"
+              size={mobile ? 16 : 20}
+              color="#64748b"
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Conversations List */}
-      {filteredConversations.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, isMobile && styles.emptyTextMobile]}>
-            {searchQuery
-              ? "No conversations found"
-              : selectedContactId
-              ? "No conversations with this contact yet"
-              : "No conversations yet"}
+      <FlatList
+        data={filteredConversations}
+        renderItem={renderConversation}
+        keyExtractor={(item) => item.id}
+        style={styles.conversationsList}
+        contentContainerStyle={[
+          styles.conversationsListContent,
+          mobile && styles.conversationsListContentMobile,
+        ]}
+        showsVerticalScrollIndicator={false}
+      />
+
+      {/* Empty State */}
+      {filteredConversations.length === 0 && (
+        <View style={[styles.emptyState, mobile && styles.emptyStateMobile]}>
+          <Ionicons
+            name="chatbubbles-outline"
+            size={mobile ? 48 : 64}
+            color="#cbd5e1"
+          />
+          <Text style={[styles.emptyText, mobile && styles.emptyTextMobile]}>
+            {searchQuery ? "No conversations found" : "No conversations yet"}
           </Text>
+          {!searchQuery && (
+            <Text
+              style={[styles.emptySubtext, mobile && styles.emptySubtextMobile]}
+            >
+              Start a conversation to see it here
+            </Text>
+          )}
         </View>
-      ) : (
-        <FlatList
-          data={filteredConversations}
-          renderItem={renderConversation}
-          keyExtractor={(item) => item.id}
-          style={styles.conversationsList}
-          showsVerticalScrollIndicator={false}
-        />
       )}
     </View>
   );
@@ -213,173 +284,232 @@ export default function MiddlePanel({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
   },
   containerMobile: {
-    paddingHorizontal: 8,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  headerMobile: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    height: "100%",
   },
   tabsContainer: {
     flexDirection: "row",
-    backgroundColor: "#f5f5f5",
-    borderRadius: 8,
-    padding: 2,
+    backgroundColor: "#f8fafc",
+    marginHorizontal: 16,
+    marginVertical: 12,
+    borderRadius: 12,
+    padding: 4,
+  },
+  tabsContainerMobile: {
+    marginHorizontal: 12,
+    marginVertical: 8,
+    padding: 3,
   },
   tab: {
     flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 6,
+    borderRadius: 8,
     alignItems: "center",
   },
+  tabMobile: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
   activeTab: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
   tabText: {
     fontSize: 14,
-    color: "#666",
     fontWeight: "500",
+    color: "#64748b",
   },
   tabTextMobile: {
-    fontSize: 12,
+    fontSize: 13,
   },
   activeTabText: {
-    color: "#000",
+    color: "#3b82f6",
     fontWeight: "600",
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
     marginHorizontal: 16,
-    marginVertical: 16,
+    marginVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    height: 40,
+    paddingVertical: 8,
   },
   searchContainerMobile: {
-    marginHorizontal: 8,
-    marginVertical: 12,
-    height: 36,
-    paddingHorizontal: 8,
+    marginHorizontal: 12,
+    marginVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: "#000",
+    fontSize: 16,
+    color: "#1e293b",
   },
   searchInputMobile: {
-    fontSize: 12,
+    fontSize: 14,
+  },
+  clearButton: {
+    padding: 4,
   },
   conversationsList: {
     flex: 1,
   },
+  conversationsListContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  conversationsListContentMobile: {
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+  },
   conversationItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    marginBottom: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderWidth: 1,
+    borderColor: "#f1f5f9",
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
   conversationItemMobile: {
-    paddingHorizontal: 8,
-    paddingVertical: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 6,
   },
   selectedConversation: {
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#eff6ff",
+    borderColor: "#3b82f6",
   },
   conversationContent: {
     flex: 1,
+    marginRight: 8,
   },
   conversationHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 4,
   },
-  contactName: {
+  conversationSubject: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#000",
+    color: "#1e293b",
     flex: 1,
+    marginRight: 8,
   },
-  contactNameMobile: {
+  conversationSubjectMobile: {
     fontSize: 14,
   },
-  timeText: {
+  conversationTime: {
     fontSize: 12,
-    color: "#666",
-    marginLeft: 8,
+    color: "#64748b",
+    fontWeight: "500",
   },
-  timeTextMobile: {
-    fontSize: 10,
+  conversationTimeMobile: {
+    fontSize: 11,
   },
-  lastMessageText: {
+  lastMessage: {
     fontSize: 14,
-    color: "#666",
+    color: "#64748b",
     lineHeight: 18,
+    marginBottom: 4,
   },
-  lastMessageTextMobile: {
+  lastMessageMobile: {
     fontSize: 12,
     lineHeight: 16,
   },
-  unreadBadge: {
-    backgroundColor: "#FF3B30",
-    borderRadius: 12,
-    minWidth: 24,
-    height: 24,
-    justifyContent: "center",
+  unreadIndicator: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 6,
-    marginLeft: 8,
   },
-  unreadBadgeMobile: {
+  unreadDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#3b82f6",
+    marginRight: 6,
+  },
+  unreadDotMobile: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginRight: 4,
+  },
+  unreadText: {
+    fontSize: 12,
+    color: "#3b82f6",
+    fontWeight: "500",
+  },
+  unreadTextMobile: {
+    fontSize: 11,
+  },
+  conversationStatus: {
+    alignItems: "center",
+  },
+  unreadBadge: {
+    backgroundColor: "#3b82f6",
+    borderRadius: 10,
     minWidth: 20,
     height: 20,
-    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+  },
+  unreadBadgeMobile: {
+    minWidth: 18,
+    height: 18,
+    marginBottom: 3,
   },
   unreadBadgeText: {
-    color: "#fff",
+    color: "#ffffff",
     fontSize: 12,
     fontWeight: "600",
   },
   unreadBadgeTextMobile: {
     fontSize: 10,
   },
-  emptyContainer: {
+  emptyState: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 40,
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
+  emptyStateMobile: {
+    paddingHorizontal: 24,
   },
   emptyText: {
-    fontSize: 16,
-    color: "#999",
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#64748b",
+    marginTop: 16,
     textAlign: "center",
   },
   emptyTextMobile: {
+    fontSize: 16,
+    marginTop: 12,
+  },
+  emptySubtext: {
     fontSize: 14,
+    color: "#94a3b8",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  emptySubtextMobile: {
+    fontSize: 12,
+    marginTop: 6,
   },
 });

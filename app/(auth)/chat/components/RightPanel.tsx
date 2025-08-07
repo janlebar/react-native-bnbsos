@@ -9,9 +9,13 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { sendMessage } from "../../../../api/chatapi";
+
+const { width, height } = Dimensions.get("window");
+const isMobile = width < 768;
 
 interface RightPanelProps {
   messages: any[];
@@ -23,10 +27,34 @@ interface RightPanelProps {
   isMobile?: boolean;
 }
 
-// Format time for display
 const formatMessageTime = (dateString: string) => {
-  const date = new Date(dateString);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 1) {
+      return "now";
+    } else if (diffInHours < 24) {
+      return date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    } else if (diffInHours < 168) {
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      });
+    } else {
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    }
+  } catch (error) {
+    return "";
+  }
 };
 
 export default function RightPanel({
@@ -36,46 +64,56 @@ export default function RightPanel({
   selectedConversationId,
   selectedContactId,
   conversation,
-  isMobile = false,
+  isMobile: propIsMobile = false,
 }: RightPanelProps) {
   const [inputText, setInputText] = useState("");
   const [displayedMessages, setDisplayedMessages] = useState(messages);
   const [isLoading, setIsLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+  const mobile = propIsMobile || isMobile;
 
   // Update displayed messages when props change
   useEffect(() => {
     setDisplayedMessages(messages);
-    // Auto scroll to bottom when messages change
-    setTimeout(() => {
-      if (flatListRef.current && messages.length > 0) {
-        flatListRef.current.scrollToEnd({ animated: true });
-      }
-    }, 100);
   }, [messages]);
 
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (flatListRef.current && displayedMessages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [displayedMessages]);
+
   const handleSendMessage = async () => {
-    if (!inputText.trim() || !selectedContactId || isLoading) return;
+    if (
+      !inputText.trim() ||
+      !selectedConversationId ||
+      !selectedContactId ||
+      isLoading
+    ) {
+      return;
+    }
 
     const messageText = inputText.trim();
     setInputText("");
     setIsLoading(true);
 
+    // Create optimistic message
+    const optimisticMessage = {
+      id: `temp-${Date.now()}`,
+      text: messageText,
+      sender_id: currentUserId,
+      senderName: currentUserName || "You",
+      date: new Date().toISOString(),
+      isOptimistic: true,
+    };
+
+    // Add optimistic message to UI
+    setDisplayedMessages((prev) => [...prev, optimisticMessage]);
+
     try {
-      // Create optimistic message for immediate UI update
-      const optimisticMessage = {
-        id: `temp-${Date.now()}`,
-        text: messageText,
-        sender_id: currentUserId,
-        User: { name: currentUserName },
-        date: new Date().toISOString(),
-        read: true,
-        deleted: false,
-      };
-
-      // Update UI immediately
-      setDisplayedMessages((prev) => [...prev, optimisticMessage]);
-
       // Send message to API
       const newMessage = await sendMessage(
         currentUserId,
@@ -83,46 +121,28 @@ export default function RightPanel({
         messageText
       );
 
-      // Replace optimistic message with real one
+      // Replace optimistic message with real message
       setDisplayedMessages((prev) =>
         prev.map((msg) =>
-          msg.id === optimisticMessage.id
-            ? {
-                id: newMessage.id,
-                text: newMessage.content,
-                sender_id: newMessage.senderId,
-                User: { name: newMessage.sender?.name },
-                date: newMessage.createdAt,
-                read: newMessage.read,
-                deleted: false,
-              }
+          msg.isOptimistic
+            ? { ...newMessage, senderName: currentUserName || "You" }
             : msg
         )
       );
-
-      // Scroll to bottom
-      setTimeout(() => {
-        if (flatListRef.current) {
-          flatListRef.current.scrollToEnd({ animated: true });
-        }
-      }, 100);
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("Failed to send message:", error);
       Alert.alert("Error", "Failed to send message. Please try again.");
 
       // Remove optimistic message on error
-      setDisplayedMessages((prev) =>
-        prev.filter((msg) => msg.id !== `temp-${Date.now()}`)
-      );
+      setDisplayedMessages((prev) => prev.filter((msg) => !msg.isOptimistic));
     } finally {
       setIsLoading(false);
     }
   };
 
   const getSenderName = (message: any) => {
-    if (message.sender_id === currentUserId) {
-      return currentUserName || "You";
-    }
+    if (!message.sender_id) return "Unknown Sender";
+    if (message.sender_id === currentUserId) return currentUserName || "You";
     return message.User?.name || "Contact";
   };
 
@@ -135,42 +155,43 @@ export default function RightPanel({
         style={[
           styles.messageContainer,
           isCurrentUser ? styles.currentUserMessage : styles.otherUserMessage,
-          isMobile && styles.messageContainerMobile,
+          mobile && styles.messageContainerMobile,
         ]}
       >
+        {/* Message Header */}
+        <View style={styles.messageHeader}>
+          <Text
+            style={[
+              styles.senderName,
+              isCurrentUser ? styles.currentUserName : styles.otherUserName,
+              mobile && styles.senderNameMobile,
+            ]}
+          >
+            {senderName}
+          </Text>
+          <Text
+            style={[styles.messageTime, mobile && styles.messageTimeMobile]}
+          >
+            {formatMessageTime(item.date)}
+          </Text>
+        </View>
+
+        {/* Message Content */}
         <View
           style={[
             styles.messageBubble,
             isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
-            isMobile && styles.messageBubbleMobile,
+            mobile && styles.messageBubbleMobile,
           ]}
         >
-          {!isCurrentUser && (
-            <Text
-              style={[styles.senderName, isMobile && styles.senderNameMobile]}
-            >
-              {senderName}
-            </Text>
-          )}
-
           <Text
             style={[
               styles.messageText,
               isCurrentUser ? styles.currentUserText : styles.otherUserText,
-              isMobile && styles.messageTextMobile,
+              mobile && styles.messageTextMobile,
             ]}
           >
-            {item.deleted ? "Message was deleted" : item.text}
-          </Text>
-
-          <Text
-            style={[
-              styles.messageTime,
-              isCurrentUser ? styles.currentUserTime : styles.otherUserTime,
-              isMobile && styles.messageTimeMobile,
-            ]}
-          >
-            {formatMessageTime(item.date)}
+            {item.text}
           </Text>
         </View>
       </View>
@@ -179,145 +200,76 @@ export default function RightPanel({
 
   if (!selectedConversationId) {
     return (
-      <View style={[styles.container, styles.emptyStateContainer]}>
-        <Text
-          style={[
-            styles.emptyStateText,
-            isMobile && styles.emptyStateTextMobile,
-          ]}
-        >
-          Select a conversation to start messaging
-        </Text>
+      <View style={[styles.container, mobile && styles.containerMobile]}>
+        <View style={[styles.emptyState, mobile && styles.emptyStateMobile]}>
+          <Ionicons
+            name="chatbubble-outline"
+            size={mobile ? 64 : 80}
+            color="#cbd5e1"
+          />
+          <Text style={[styles.emptyText, mobile && styles.emptyTextMobile]}>
+            Select a conversation to start messaging
+          </Text>
+        </View>
       </View>
     );
   }
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, mobile && styles.containerMobile]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
-      {/* Header */}
-      <View style={[styles.header, isMobile && styles.headerMobile]}>
-        <View style={styles.headerContent}>
-          <View style={[styles.avatar, isMobile && styles.avatarMobile]}>
-            <Text
-              style={[styles.avatarText, isMobile && styles.avatarTextMobile]}
-            >
-              {conversation?.User?.name?.charAt(0)?.toUpperCase() ||
-                conversation?.Contractor?.user?.name
-                  ?.charAt(0)
-                  ?.toUpperCase() ||
-                "?"}
-            </Text>
-          </View>
-          <View style={styles.headerInfo}>
-            <Text
-              style={[styles.headerName, isMobile && styles.headerNameMobile]}
-            >
-              {conversation?.User?.name ||
-                conversation?.Contractor?.user?.name ||
-                "Contact"}
-            </Text>
-            <Text
-              style={[
-                styles.headerSubtext,
-                isMobile && styles.headerSubtextMobile,
-              ]}
-            >
-              Reply to conversation
-            </Text>
-          </View>
-        </View>
-
-        {/* Action buttons */}
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            style={[styles.actionButton, isMobile && styles.actionButtonMobile]}
-          >
-            <Ionicons
-              name="archive-outline"
-              size={isMobile ? 18 : 20}
-              color="#666"
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, isMobile && styles.actionButtonMobile]}
-          >
-            <Ionicons
-              name="trash-outline"
-              size={isMobile ? 18 : 20}
-              color="#666"
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
       {/* Messages List */}
-      <View style={styles.messagesContainer}>
-        {displayedMessages.length === 0 ? (
-          <View style={styles.emptyMessagesContainer}>
-            <Text
-              style={[
-                styles.emptyMessagesText,
-                isMobile && styles.emptyMessagesTextMobile,
-              ]}
-            >
-              No messages in this conversation
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={displayedMessages}
-            renderItem={renderMessage}
-            keyExtractor={(item) => item.id.toString()}
-            style={styles.messagesList}
-            contentContainerStyle={styles.messagesContent}
-            showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => {
-              if (flatListRef.current) {
-                flatListRef.current.scrollToEnd({ animated: false });
-              }
-            }}
-          />
-        )}
-      </View>
+      <FlatList
+        ref={flatListRef}
+        data={displayedMessages}
+        renderItem={renderMessage}
+        keyExtractor={(item) => item.id}
+        style={styles.messagesList}
+        contentContainerStyle={[
+          styles.messagesListContent,
+          mobile && styles.messagesListContentMobile,
+        ]}
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => {
+          if (flatListRef.current && displayedMessages.length > 0) {
+            flatListRef.current.scrollToEnd({ animated: true });
+          }
+        }}
+      />
 
       {/* Input Area */}
       <View
-        style={[styles.inputContainer, isMobile && styles.inputContainerMobile]}
+        style={[styles.inputContainer, mobile && styles.inputContainerMobile]}
       >
-        <View style={styles.inputRow}>
-          <TouchableOpacity
-            style={[styles.attachButton, isMobile && styles.attachButtonMobile]}
-          >
-            <Ionicons name="attach" size={isMobile ? 20 : 24} color="#666" />
-          </TouchableOpacity>
-
+        <View
+          style={[styles.inputWrapper, mobile && styles.inputWrapperMobile]}
+        >
           <TextInput
-            style={[styles.textInput, isMobile && styles.textInputMobile]}
-            placeholder="Type your message..."
+            style={[styles.textInput, mobile && styles.textInputMobile]}
+            placeholder="Type a message..."
+            placeholderTextColor="#64748b"
             value={inputText}
             onChangeText={setInputText}
             multiline
             maxLength={1000}
-            placeholderTextColor="#999"
+            editable={!isLoading}
           />
-
           <TouchableOpacity
             style={[
               styles.sendButton,
-              isMobile && styles.sendButtonMobile,
               (!inputText.trim() || isLoading) && styles.sendButtonDisabled,
+              mobile && styles.sendButtonMobile,
             ]}
             onPress={handleSendMessage}
             disabled={!inputText.trim() || isLoading}
           >
             <Ionicons
-              name={isLoading ? "hourglass" : "send"}
-              size={isMobile ? 18 : 20}
-              color={!inputText.trim() || isLoading ? "#ccc" : "#007AFF"}
+              name="send"
+              size={mobile ? 20 : 24}
+              color={inputText.trim() && !isLoading ? "#ffffff" : "#94a3b8"}
             />
           </TouchableOpacity>
         </View>
@@ -329,152 +281,84 @@ export default function RightPanel({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
   },
-  emptyStateContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: "#999",
-    textAlign: "center",
-  },
-  emptyStateTextMobile: {
-    fontSize: 14,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    backgroundColor: "#fff",
-  },
-  headerMobile: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#007AFF",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  avatarMobile: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    marginRight: 8,
-  },
-  avatarText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  avatarTextMobile: {
-    fontSize: 14,
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000",
-    marginBottom: 2,
-  },
-  headerNameMobile: {
-    fontSize: 14,
-  },
-  headerSubtext: {
-    fontSize: 12,
-    color: "#666",
-  },
-  headerSubtextMobile: {
-    fontSize: 10,
-  },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  actionButton: {
-    padding: 8,
-    marginLeft: 4,
-  },
-  actionButtonMobile: {
-    padding: 6,
-  },
-  messagesContainer: {
-    flex: 1,
+  containerMobile: {
+    height: "100%",
   },
   messagesList: {
     flex: 1,
   },
-  messagesContent: {
+  messagesListContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  messagesListContentMobile: {
+    paddingHorizontal: 12,
     paddingVertical: 8,
-  },
-  emptyMessagesContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  emptyMessagesText: {
-    fontSize: 16,
-    color: "#999",
-    textAlign: "center",
-  },
-  emptyMessagesTextMobile: {
-    fontSize: 14,
   },
   messageContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
+    marginBottom: 16,
+    maxWidth: "80%",
   },
   messageContainerMobile: {
-    paddingHorizontal: 12,
+    marginBottom: 12,
+    maxWidth: "85%",
   },
   currentUserMessage: {
-    alignItems: "flex-end",
+    alignSelf: "flex-end",
   },
   otherUserMessage: {
-    alignItems: "flex-start",
+    alignSelf: "flex-start",
   },
-  messageBubble: {
-    maxWidth: "75%",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  messageBubbleMobile: {
-    maxWidth: "85%",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  currentUserBubble: {
-    backgroundColor: "#007AFF",
-  },
-  otherUserBubble: {
-    backgroundColor: "#f0f0f0",
+  messageHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+    paddingHorizontal: 4,
   },
   senderName: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#666",
-    marginBottom: 2,
+    color: "#64748b",
   },
   senderNameMobile: {
+    fontSize: 11,
+  },
+  currentUserName: {
+    color: "#3b82f6",
+  },
+  otherUserName: {
+    color: "#64748b",
+  },
+  messageTime: {
     fontSize: 10,
+    color: "#94a3b8",
+  },
+  messageTimeMobile: {
+    fontSize: 9,
+  },
+  messageBubble: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  messageBubbleMobile: {
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  currentUserBubble: {
+    backgroundColor: "#3b82f6",
+  },
+  otherUserBubble: {
+    backgroundColor: "#f1f5f9",
   },
   messageText: {
     fontSize: 16,
@@ -485,28 +369,15 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   currentUserText: {
-    color: "#fff",
+    color: "#ffffff",
   },
   otherUserText: {
-    color: "#000",
-  },
-  messageTime: {
-    fontSize: 10,
-    marginTop: 4,
-  },
-  messageTimeMobile: {
-    fontSize: 8,
-  },
-  currentUserTime: {
-    color: "rgba(255, 255, 255, 0.7)",
-  },
-  otherUserTime: {
-    color: "#999",
+    color: "#1e293b",
   },
   inputContainer: {
-    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: "#eee",
+    borderTopColor: "#e2e8f0",
+    backgroundColor: "#ffffff",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
@@ -514,44 +385,67 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  inputRow: {
+  inputWrapper: {
     flexDirection: "row",
     alignItems: "flex-end",
-  },
-  attachButton: {
-    padding: 8,
-    marginRight: 8,
-  },
-  attachButtonMobile: {
-    padding: 6,
-    marginRight: 6,
-  },
-  textInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 20,
+    backgroundColor: "#f8fafc",
+    borderRadius: 24,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    fontSize: 16,
-    maxHeight: 100,
-    minHeight: 40,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  textInputMobile: {
-    fontSize: 14,
-    minHeight: 36,
+  inputWrapperMobile: {
+    borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#1e293b",
+    maxHeight: 100,
+    paddingVertical: 4,
+  },
+  textInputMobile: {
+    fontSize: 14,
+    maxHeight: 80,
+  },
   sendButton: {
-    padding: 8,
+    backgroundColor: "#3b82f6",
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
     marginLeft: 8,
   },
   sendButtonMobile: {
-    padding: 6,
-    marginLeft: 6,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   sendButtonDisabled: {
-    opacity: 0.5,
+    backgroundColor: "#e2e8f0",
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
+  emptyStateMobile: {
+    paddingHorizontal: 24,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#64748b",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  emptyTextMobile: {
+    fontSize: 16,
+    marginTop: 12,
   },
 });

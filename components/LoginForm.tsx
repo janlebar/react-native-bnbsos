@@ -1,257 +1,192 @@
-import React, { useState, useTransition } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
-  Switch,
+  TextInput,
   TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
-import { useForm, Controller } from "react-hook-form";
-import { TextInput, Button } from "react-native-paper";
-import { loginApi } from "../api/authapi";
 import { useRouter } from "expo-router";
+import { loginApi } from "../api/authapi";
+import { useAuth } from "../lib/auth-context";
 import OAuthButtons from "./OAuthButtons";
 
-type LoginFormValues = {
-  email: string;
-  password: string;
-};
+interface LoginFormProps {
+  isContractor?: boolean;
+}
 
-export default function LoginForm() {
+export default function LoginForm({ isContractor = false }: LoginFormProps) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isPending, setIsPending] = useState(false);
   const router = useRouter();
-  const [isContractor, setIsContractor] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const { signIn } = useAuth();
 
-  const { control, handleSubmit, reset } = useForm<LoginFormValues>({
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
 
-  const onSubmit = (values: LoginFormValues) => {
-    setError("");
-    setSuccess("");
+    setIsPending(true);
 
-    const email = values.email.trim().toLowerCase();
-    const password = values.password.trim();
-
-    startTransition(() => {
-      loginApi({
-        email,
+    try {
+      const response = await loginApi({
+        email: email.trim(),
         password,
         isContractor,
-      })
-        .then(async (response) => {
-          // NextAuth handles session via HTTP-only cookies
-          // No need to store tokens manually
-          setSuccess("Login successful!");
-          reset();
-          router.replace("/(auth)/home");
-        })
-        .catch((error) => {
-          setError(
-            error.message || "Invalid credentials or something went wrong"
-          );
-        });
-    });
+      });
+
+      // Get user data from the response or session
+      const userData = {
+        id: "user-id", // This should come from your session
+        name: email.split("@")[0], // Fallback name
+        email: email.trim(),
+        isContractor,
+      };
+
+      // Sign in the user
+      signIn(userData);
+
+      // Navigate based on user type
+      if (isContractor) {
+        router.push("/contractors");
+      } else {
+        router.push("/home");
+      }
+    } catch (error: any) {
+      Alert.alert("Login Failed", error.message || "Please try again");
+    } finally {
+      setIsPending(false);
+    }
   };
 
-  const navigateToRegister = () => {
-    router.push("/register");
-  };
-
-  const navigateToForgotPassword = () => {
-    router.push("/reset-password");
+  const handleOAuthSuccess = (userData: any) => {
+    signIn(userData);
+    if (isContractor) {
+      router.push("/contractors");
+    } else {
+      router.push("/home");
+    }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={{ flex: 1 }}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.container}>
-          <Text style={styles.header}>Welcome Back</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>
+        {isContractor ? "Contractor Login" : "User Login"}
+      </Text>
 
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          {success ? <Text style={styles.success}>{success}</Text> : null}
+      <View style={styles.form}>
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isPending}
+        />
 
-          <Controller
-            control={control}
-            name="email"
-            rules={{
-              required: "Email is required",
-              pattern: {
-                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                message: "Invalid email address",
-              },
-            }}
-            render={({ field: { onChange, value }, fieldState: { error } }) => (
-              <View>
-                <TextInput
-                  label="Email"
-                  value={value}
-                  onChangeText={onChange}
-                  disabled={isPending}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  style={styles.input}
-                  mode="flat"
-                  underlineColor="gray"
-                  activeUnderlineColor="black"
-                  textColor="black"
-                />
-                {error && (
-                  <Text style={styles.fieldError}>{error.message}</Text>
-                )}
-              </View>
-            )}
-          />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          editable={!isPending}
+        />
 
-          <Controller
-            control={control}
-            name="password"
-            rules={{ required: "Password is required" }}
-            render={({ field: { onChange, value }, fieldState: { error } }) => (
-              <View>
-                <TextInput
-                  label="Password"
-                  value={value}
-                  onChangeText={onChange}
-                  disabled={isPending}
-                  secureTextEntry
-                  style={styles.input}
-                  mode="flat"
-                  underlineColor="gray"
-                  activeUnderlineColor="black"
-                  textColor="black"
-                />
-                {error && (
-                  <Text style={styles.fieldError}>{error.message}</Text>
-                )}
-              </View>
-            )}
-          />
+        <TouchableOpacity
+          style={[styles.button, isPending && styles.buttonDisabled]}
+          onPress={handleLogin}
+          disabled={isPending}
+        >
+          {isPending ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.buttonText}>Login</Text>
+          )}
+        </TouchableOpacity>
+
+        <OAuthButtons
+          isContractor={isContractor}
+          disabled={isPending}
+          onSuccess={handleOAuthSuccess}
+        />
+
+        <View style={styles.links}>
+          <TouchableOpacity
+            onPress={() => router.push("/register")}
+            disabled={isPending}
+          >
+            <Text style={styles.link}>Don't have an account? Sign up</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={navigateToForgotPassword}
+            onPress={() => router.push("/reset-password")}
             disabled={isPending}
           >
-            <Text style={styles.forgotPasswordLink}>Forgot password?</Text>
-          </TouchableOpacity>
-
-          <View style={styles.switchRow}>
-            <Text style={styles.label}>Log in as Contractor</Text>
-            <Switch
-              value={isContractor}
-              onValueChange={setIsContractor}
-              disabled={isPending}
-              thumbColor={isContractor ? "black" : "gray"}
-              trackColor={{ false: "#ccc", true: "#444" }}
-            />
-          </View>
-
-          <Button
-            mode="contained"
-            onPress={handleSubmit(onSubmit)}
-            loading={isPending}
-            disabled={isPending}
-            style={styles.button}
-            labelStyle={styles.buttonLabel}
-            contentStyle={{ backgroundColor: "black" }}
-          >
-            Login
-          </Button>
-
-          <OAuthButtons isContractor={isContractor} disabled={isPending} />
-
-          <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
-            <Text style={styles.registerLink}>
-              Don't have an account? Register here!
-            </Text>
+            <Text style={styles.link}>Forgot password?</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: "center",
-  },
   container: {
-    padding: 24,
-    backgroundColor: "#fff",
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
   },
-  header: {
-    fontSize: 32,
+  title: {
+    fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 32,
-    color: "black",
     textAlign: "center",
+    marginBottom: 30,
+    color: "#1f2937",
+  },
+  form: {
+    width: "100%",
   },
   input: {
-    marginBottom: 16,
-    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+    fontSize: 16,
+    backgroundColor: "#ffffff",
   },
   button: {
-    marginTop: 24,
+    backgroundColor: "#3b82f6",
+    padding: 15,
     borderRadius: 8,
-  },
-  buttonLabel: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  error: {
-    color: "red",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  success: {
-    color: "green",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  fieldError: {
-    color: "red",
-    fontSize: 12,
-    marginTop: -12,
-    marginBottom: 8,
-  },
-  label: {
-    color: "black",
-    fontSize: 16,
-  },
-  switchRow: {
-    flexDirection: "row",
     alignItems: "center",
-    marginVertical: 16,
-    justifyContent: "space-between",
+    marginBottom: 20,
   },
-  registerLink: {
-    marginTop: 24,
-    textAlign: "center",
-    color: "black",
-    fontSize: 16,
-    textDecorationLine: "underline",
+  buttonDisabled: {
+    backgroundColor: "#9ca3af",
   },
-  forgotPasswordLink: {
-    marginTop: 24,
-    textAlign: "center",
-    color: "black",
+  buttonText: {
+    color: "#ffffff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  links: {
+    alignItems: "center",
+    gap: 10,
+  },
+  link: {
+    color: "#3b82f6",
+    fontSize: 14,
     textDecorationLine: "underline",
   },
 });
