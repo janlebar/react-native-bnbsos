@@ -132,6 +132,84 @@ class AuthService {
       throw new Error("Failed to get session");
     }
   }
+
+  // OAuth methods for mobile authentication
+  async initiateOAuthFlow(
+    provider: string,
+    redirectUri: string
+  ): Promise<string> {
+    try {
+      // Generate state for security
+      const state = Math.random().toString(36).substring(2, 15);
+
+      // Create the OAuth URL that will redirect to your backend
+      const authUrl = new URL(`${API_URL}/auth/mobile/signin/${provider}`);
+      authUrl.searchParams.set("state", state);
+      authUrl.searchParams.set("redirectUri", redirectUri);
+      authUrl.searchParams.set("client_id", provider);
+      authUrl.searchParams.set("scope", "openid profile email");
+
+      return authUrl.toString();
+    } catch (error: any) {
+      throw new Error(`Failed to initiate OAuth flow: ${error.message}`);
+    }
+  }
+
+  async verifyMobileSession(sessionToken: string): Promise<AuthResponse> {
+    try {
+      const response = await api.post("/auth/mobile/verify", {
+        sessionToken,
+      });
+
+      if (response.data.success) {
+        return {
+          user: response.data.user,
+          success: true,
+        };
+      }
+
+      throw new Error("Session verification failed");
+    } catch (error: any) {
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      }
+      throw new Error(error.message || "Session verification failed");
+    }
+  }
+
+  async handleOAuthCallback(
+    provider: string,
+    callbackUrl: string
+  ): Promise<AuthResponse> {
+    try {
+      // Extract parameters from callback URL
+      const url = new URL(callbackUrl);
+      const code = url.searchParams.get("code");
+      const state = url.searchParams.get("state");
+
+      if (!code) {
+        throw new Error("No authorization code received");
+      }
+
+      // Exchange code for session via your backend
+      const response = await api.get(`/auth/callback/${provider}`, {
+        params: { code, state },
+        withCredentials: true,
+      });
+
+      if (response.status === 200) {
+        const userInfo = await this.getUserInfo();
+        return this.handleSuccessfulLogin(userInfo, "");
+      }
+
+      throw new Error("OAuth callback failed");
+    } catch (error: any) {
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      }
+      throw new Error(error.message || "OAuth login failed");
+    }
+  }
 }
 
 const authService = new AuthService();

@@ -13,6 +13,7 @@ import { useForm, Controller } from "react-hook-form";
 import { TextInput, Button } from "react-native-paper";
 import { loginApi } from "../api/authapi";
 import { useRouter } from "expo-router";
+import OAuthButtons from "./OAuthButtons";
 
 type LoginFormValues = {
   email: string;
@@ -170,6 +171,8 @@ export default function LoginForm() {
           >
             Login
           </Button>
+
+          <OAuthButtons isContractor={isContractor} disabled={isPending} />
 
           <TouchableOpacity onPress={navigateToRegister} disabled={isPending}>
             <Text style={styles.registerLink}>
