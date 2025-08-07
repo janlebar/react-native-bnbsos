@@ -1,19 +1,8 @@
-// types.ts
+// types.ts - Updated for new chat system
 
-export interface Chat {
-  id: number;
-  text: string;
-  date: string;
-  subject?: string;
-  read?: boolean;
-  senderId: string;
-  senderName: string;
-  receiverId: string;
-  receiverName: string;
-}
-
+// Legacy interfaces - kept for backward compatibility with API
 export interface ChatMessage {
-  id: number;
+  id: number | string;
   text: string;
   date: string;
   subject?: string;
@@ -28,21 +17,5 @@ export interface ChatMessage {
   receiverName: string;
 }
 
-export interface ChatGroup {
-  receiverId: string;
-  receiverName: string;
-  chats: ChatMessage[];
-  lastMessage: ChatMessage;
-  unreadCount: number;
-}
-
-type ChatState = {
-  selected?: string | number;
-};
-
-type SetChat = (chat: ChatState) => void;
-
-declare function useChat(): [ChatState, SetChat];
-
-// Default export the useChat hook if needed
-export default useChat;
+// New chat system uses the interfaces from api/types.ts and the components handle their own local types
+// The ChatMessage interface above is kept for compatibility with the current mock API structure

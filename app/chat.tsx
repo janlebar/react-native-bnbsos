@@ -1,21 +1,7 @@
 // chat.tsx
 import React from "react";
-import { StyleSheet, View } from "react-native";
-import Chat from "../app/(auth)/chat/chat";
+import ChatPage from "./(auth)/chat/index";
 
 export default function MainChat() {
-  return (
-    <View style={styles.container}>
-      <Chat />
-    </View>
-  );
+  return <ChatPage />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: 100,
-    paddingHorizontal: 20,
-    backgroundColor: "#fff",
-  },
-});
