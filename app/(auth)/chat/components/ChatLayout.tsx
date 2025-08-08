@@ -185,8 +185,10 @@ export default function ChatLayout({
         <View style={styles.desktopLeftPanel}>
           <LeftPanel
             contacts={contacts}
+            conversations={conversations}
             currentUserId={currentUserId}
             selectedContactId={selectedContactId || null}
+            selectedConversationId={selectedConversationId || null}
           />
         </View>
 
@@ -227,8 +229,10 @@ export default function ChatLayout({
         {activePanel === "contacts" && (
           <LeftPanel
             contacts={contacts}
+            conversations={conversations}
             currentUserId={currentUserId}
             selectedContactId={selectedContactId || null}
+            selectedConversationId={selectedConversationId || null}
           />
         )}
 

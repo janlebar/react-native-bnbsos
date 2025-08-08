@@ -3,37 +3,44 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  TextInput,
-  Dimensions,
   ScrollView,
+  TouchableOpacity,
+  Dimensions,
+  FlatList,
+  TextInput,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-
-const { width, height } = Dimensions.get("window");
-const isMobile = width < 768;
+import { Ionicons } from "@expo/vector-icons";
 
 interface LeftPanelProps {
   contacts: any[];
+  conversations: any[];
   currentUserId: string;
   selectedContactId: string | null;
-  isMobile?: boolean;
+  selectedConversationId: string | null;
 }
+
+const { width } = Dimensions.get("window");
+const isMobile = width < 768;
 
 export default function LeftPanel({
   contacts,
+  conversations,
   currentUserId,
   selectedContactId,
-  isMobile: propIsMobile = false,
+  selectedConversationId,
 }: LeftPanelProps) {
-  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
-  const mobile = propIsMobile || isMobile;
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleSelectContact = (contactId: string) => {
     router.push(`/chat/${contactId}`);
+  };
+
+  const handleSelectConversation = (conversationId: string) => {
+    if (selectedContactId) {
+      router.push(`/chat/${selectedContactId}/${conversationId}`);
+    }
   };
 
   // Filter contacts based on search
@@ -43,101 +50,92 @@ export default function LeftPanel({
       contact.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Filter conversations based on search
+  const filteredConversations = conversations.filter(
+    (conversation) =>
+      conversation.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      conversation.Chat?.[conversation.Chat.length - 1]?.text
+        ?.toLowerCase()
+        .includes(searchQuery.toLowerCase())
+  );
+
   const renderContactAvatar = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[
         styles.avatarContainer,
-        selectedContactId === item.id && styles.selectedAvatarContainer,
-        mobile && styles.avatarContainerMobile,
+        selectedContactId === item.id && styles.selectedAvatar,
       ]}
       onPress={() => handleSelectContact(item.id)}
-      activeOpacity={0.7}
     >
-      <View style={[styles.avatar, mobile && styles.avatarMobile]}>
-        <Text style={[styles.avatarText, mobile && styles.avatarTextMobile]}>
-          {item.name?.charAt(0).toUpperCase() ||
-            item.email?.charAt(0).toUpperCase() ||
-            "U"}
+      <View style={styles.avatar}>
+        <Text style={styles.avatarText}>
+          {item.name?.charAt(0)?.toUpperCase() ||
+            item.email?.charAt(0)?.toUpperCase() ||
+            "?"}
         </Text>
       </View>
+      <Text style={styles.avatarName} numberOfLines={1}>
+        {item.name || item.email}
+      </Text>
       {item.unreadCount > 0 && (
-        <View style={[styles.unreadBadge, mobile && styles.unreadBadgeMobile]}>
-          <Text style={[styles.unreadText, mobile && styles.unreadTextMobile]}>
-            {item.unreadCount}
-          </Text>
+        <View style={styles.unreadBadge}>
+          <Text style={styles.unreadText}>{item.unreadCount}</Text>
         </View>
       )}
     </TouchableOpacity>
   );
 
-  const renderContactItem = ({ item }: { item: any }) => (
+  const renderConversationItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[
-        styles.contactItem,
-        selectedContactId === item.id && styles.selectedContact,
-        mobile && styles.contactItemMobile,
+        styles.conversationItem,
+        selectedConversationId === item.id && styles.selectedConversation,
       ]}
-      onPress={() => handleSelectContact(item.id)}
-      activeOpacity={0.7}
+      onPress={() => handleSelectConversation(item.id)}
     >
-      <View style={styles.contactRow}>
+      <View style={styles.conversationRow}>
         {/* Avatar */}
-        <View
-          style={[styles.contactAvatar, mobile && styles.contactAvatarMobile]}
-        >
-          <Text
-            style={[
-              styles.contactAvatarText,
-              mobile && styles.contactAvatarTextMobile,
-            ]}
-          >
-            {item.name?.charAt(0).toUpperCase() ||
-              item.email?.charAt(0).toUpperCase() ||
-              "U"}
+        <View style={styles.conversationAvatar}>
+          <Text style={styles.conversationAvatarText}>
+            {item.Contractor?.name?.charAt(0)?.toUpperCase() ||
+              item.User?.name?.charAt(0)?.toUpperCase() ||
+              item.subject?.charAt(0)?.toUpperCase() ||
+              "?"}
           </Text>
         </View>
 
-        {/* Contact Info */}
-        <View style={styles.contactInfo}>
-          <Text
-            style={[styles.contactName, mobile && styles.contactNameMobile]}
-            numberOfLines={1}
-          >
-            {item.name || item.email}
+        {/* Conversation Info */}
+        <View style={styles.conversationInfo}>
+          <Text style={styles.conversationName} numberOfLines={1}>
+            {item.Contractor?.name ||
+              item.User?.name ||
+              item.subject ||
+              "Conversation"}
           </Text>
-          {item.lastMessageTime && (
-            <Text
-              style={[styles.lastMessage, mobile && styles.lastMessageMobile]}
-              numberOfLines={1}
-            >
-              {item.lastMessage}
+          {item.Chat?.[0] && (
+            <Text style={styles.lastMessage} numberOfLines={1}>
+              {item.Chat[0].text}
             </Text>
           )}
         </View>
 
         {/* Time and Status */}
-        <View style={styles.contactStatus}>
-          {item.lastMessageTime && (
-            <Text
-              style={[styles.messageTime, mobile && styles.messageTimeMobile]}
-            >
-              {formatTime(item.lastMessageTime)}
+        <View style={styles.conversationStatus}>
+          {item.Chat?.[0]?.date && (
+            <Text style={styles.messageTime}>
+              {formatTime(item.Chat[0].date)}
             </Text>
           )}
-          {item.unreadCount > 0 && (
-            <View
-              style={[
-                styles.unreadIndicator,
-                mobile && styles.unreadIndicatorMobile,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.unreadIndicatorText,
-                  mobile && styles.unreadIndicatorTextMobile,
-                ]}
-              >
-                {item.unreadCount}
+          {item.Chat?.some(
+            (msg: any) => !msg.read && msg.sender_id !== currentUserId
+          ) && (
+            <View style={styles.unreadIndicator}>
+              <Text style={styles.unreadIndicatorText}>
+                {
+                  item.Chat?.filter(
+                    (msg: any) => !msg.read && msg.sender_id !== currentUserId
+                  ).length
+                }
               </Text>
             </View>
           )}
@@ -167,106 +165,64 @@ export default function LeftPanel({
   };
 
   return (
-    <View style={[styles.container, mobile && styles.containerMobile]}>
+    <View style={styles.container}>
       {/* Search Bar */}
-      <View
-        style={[styles.searchContainer, mobile && styles.searchContainerMobile]}
-      >
+      <View style={styles.searchContainer}>
         <Ionicons
           name="search"
-          size={mobile ? 16 : 20}
+          size={16}
           color="#64748b"
           style={styles.searchIcon}
         />
         <TextInput
-          style={[styles.searchInput, mobile && styles.searchInputMobile]}
-          placeholder="Search contacts..."
-          placeholderTextColor="#64748b"
+          style={styles.searchInput}
+          placeholder="Search..."
           value={searchQuery}
           onChangeText={setSearchQuery}
+          placeholderTextColor="#64748b"
         />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setSearchQuery("")}
-            style={styles.clearButton}
-          >
-            <Ionicons
-              name="close-circle"
-              size={mobile ? 16 : 20}
-              color="#64748b"
-            />
-          </TouchableOpacity>
-        )}
       </View>
 
-      {/* Conversations Carousel */}
-      <View
-        style={[styles.carouselSection, mobile && styles.carouselSectionMobile]}
-      >
-        <Text
-          style={[styles.sectionTitle, mobile && styles.sectionTitleMobile]}
-        >
-          Conversations
-        </Text>
+      {/* Contacts Carousel - TOP SECTION */}
+      <View style={styles.carouselContainer}>
+        <Text style={styles.sectionTitle}>Contacts</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.carouselContent,
-            mobile && styles.carouselContentMobile,
-          ]}
+          contentContainerStyle={styles.carouselContent}
         >
-          {filteredContacts.map((contact) => (
-            <View key={contact.id} style={styles.avatarWrapper}>
-              {renderContactAvatar({ item: contact })}
+          {filteredContacts.length === 0 ? (
+            <View style={styles.emptyCarousel}>
+              <Text style={styles.emptyText}>No contacts yet</Text>
             </View>
-          ))}
+          ) : (
+            filteredContacts.map((contact) => (
+              <View key={contact.id} style={styles.avatarWrapper}>
+                {renderContactAvatar({ item: contact })}
+              </View>
+            ))
+          )}
         </ScrollView>
       </View>
 
-      {/* Contacts List */}
-      <View
-        style={[styles.contactsSection, mobile && styles.contactsSectionMobile]}
-      >
-        <Text
-          style={[styles.sectionTitle, mobile && styles.sectionTitleMobile]}
-        >
-          Contacts
-        </Text>
-        <FlatList
-          data={filteredContacts}
-          renderItem={renderContactItem}
-          keyExtractor={(item) => item.id}
-          style={styles.contactsList}
-          contentContainerStyle={[
-            styles.contactsListContent,
-            mobile && styles.contactsListContentMobile,
-          ]}
-          showsVerticalScrollIndicator={false}
-        />
-
-        {/* Empty State */}
-        {filteredContacts.length === 0 && (
-          <View style={[styles.emptyState, mobile && styles.emptyStateMobile]}>
-            <Ionicons
-              name="people-outline"
-              size={mobile ? 48 : 64}
-              color="#cbd5e1"
-            />
-            <Text style={[styles.emptyText, mobile && styles.emptyTextMobile]}>
-              {searchQuery ? "No contacts found" : "No contacts yet"}
+      {/* Conversations List - BOTTOM SECTION */}
+      <View style={styles.conversationsContainer}>
+        <Text style={styles.sectionTitle}>Conversations</Text>
+        {filteredConversations.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No conversations found</Text>
+            <Text style={styles.emptySubtext}>
+              Start a conversation to see messages here
             </Text>
-            {!searchQuery && (
-              <Text
-                style={[
-                  styles.emptySubtext,
-                  mobile && styles.emptySubtextMobile,
-                ]}
-              >
-                Start a conversation to see contacts here
-              </Text>
-            )}
           </View>
+        ) : (
+          <FlatList
+            data={filteredConversations}
+            renderItem={renderConversationItem}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.conversationsList}
+          />
         )}
       </View>
     </View>
@@ -278,163 +234,111 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
   },
-  containerMobile: {
-    height: "100%",
-  },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f8fafc",
-    borderRadius: 12,
+    borderRadius: 8,
     marginHorizontal: 16,
     marginVertical: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-  },
-  searchContainerMobile: {
-    marginHorizontal: 12,
-    marginVertical: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: "#1e293b",
-  },
-  searchInputMobile: {
     fontSize: 14,
+    color: "#1f2937",
   },
-  clearButton: {
-    padding: 4,
-  },
-  carouselSection: {
-    marginBottom: 20,
-  },
-  carouselSectionMobile: {
+  carouselContainer: {
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#1e293b",
-    marginBottom: 12,
-    paddingHorizontal: 16,
-  },
-  sectionTitleMobile: {
     fontSize: 16,
-    marginBottom: 8,
-    paddingHorizontal: 12,
+    fontWeight: "600",
+    color: "#1f2937",
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
   carouselContent: {
     paddingHorizontal: 16,
   },
-  carouselContentMobile: {
-    paddingHorizontal: 12,
+  emptyCarousel: {
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+    alignItems: "center",
   },
   avatarWrapper: {
-    marginRight: 16,
+    marginRight: 12,
   },
   avatarContainer: {
     alignItems: "center",
-    position: "relative",
+    width: 60,
   },
-  avatarContainerMobile: {
-    marginRight: 12,
-  },
-  selectedAvatarContainer: {
-    // Add selection indicator if needed
+  selectedAvatar: {
+    opacity: 0.7,
   },
   avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#3b82f6",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#e2e8f0",
-  },
-  avatarMobile: {
     width: 50,
     height: 50,
     borderRadius: 25,
+    backgroundColor: "#3b82f6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 4,
   },
   avatarText: {
     color: "#ffffff",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "600",
   },
-  avatarTextMobile: {
-    fontSize: 18,
+  avatarName: {
+    fontSize: 12,
+    color: "#64748b",
+    textAlign: "center",
+    maxWidth: 60,
   },
   unreadBadge: {
     position: "absolute",
     top: -2,
-    right: -2,
+    right: 8,
     backgroundColor: "#ef4444",
     borderRadius: 10,
     minWidth: 20,
     height: 20,
-    alignItems: "center",
     justifyContent: "center",
-  },
-  unreadBadgeMobile: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
+    alignItems: "center",
   },
   unreadText: {
     color: "#ffffff",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "600",
   },
-  unreadTextMobile: {
-    fontSize: 10,
-  },
-  contactsSection: {
+  conversationsContainer: {
     flex: 1,
   },
-  contactsSectionMobile: {
-    flex: 1,
-  },
-  contactsList: {
-    flex: 1,
-  },
-  contactsListContent: {
+  conversationsList: {
     paddingHorizontal: 16,
-    paddingBottom: 20,
   },
-  contactsListContentMobile: {
-    paddingHorizontal: 12,
-    paddingBottom: 16,
-  },
-  contactItem: {
+  conversationItem: {
     backgroundColor: "#ffffff",
-    borderRadius: 12,
+    borderRadius: 8,
+    padding: 12,
     marginBottom: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: "#e5e7eb",
   },
-  contactItemMobile: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 6,
-  },
-  selectedContact: {
-    backgroundColor: "#eff6ff",
+  selectedConversation: {
+    backgroundColor: "#f0f9ff",
     borderColor: "#3b82f6",
   },
-  contactRow: {
+  conversationRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-  contactAvatar: {
+  conversationAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -443,51 +347,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 12,
   },
-  contactAvatarMobile: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  contactAvatarText: {
+  conversationAvatarText: {
     color: "#ffffff",
     fontSize: 18,
     fontWeight: "600",
   },
-  contactAvatarTextMobile: {
-    fontSize: 16,
-  },
-  contactInfo: {
+  conversationInfo: {
     flex: 1,
     marginRight: 8,
   },
-  contactName: {
+  conversationName: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1e293b",
+    color: "#1f2937",
     marginBottom: 2,
-  },
-  contactNameMobile: {
-    fontSize: 14,
   },
   lastMessage: {
     fontSize: 14,
     color: "#64748b",
   },
-  lastMessageMobile: {
-    fontSize: 12,
-  },
-  contactStatus: {
+  conversationStatus: {
     alignItems: "flex-end",
   },
   messageTime: {
     fontSize: 12,
     color: "#94a3b8",
     marginBottom: 4,
-  },
-  messageTimeMobile: {
-    fontSize: 11,
-    marginBottom: 2,
   },
   unreadIndicator: {
     backgroundColor: "#3b82f6",
@@ -497,46 +382,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  unreadIndicatorMobile: {
-    minWidth: 18,
-    height: 18,
-  },
   unreadIndicatorText: {
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "600",
   },
-  unreadIndicatorTextMobile: {
-    fontSize: 10,
-  },
-  emptyState: {
+  emptyContainer: {
     flex: 1,
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 32,
   },
-  emptyStateMobile: {
-    paddingHorizontal: 24,
-  },
   emptyText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#64748b",
-    marginTop: 16,
-    textAlign: "center",
-  },
-  emptyTextMobile: {
     fontSize: 16,
-    marginTop: 12,
+    color: "#64748b",
+    textAlign: "center",
+    marginBottom: 8,
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#94a3b8",
-    marginTop: 8,
+    color: "#9ca3af",
     textAlign: "center",
-  },
-  emptySubtextMobile: {
-    fontSize: 12,
-    marginTop: 6,
   },
 });

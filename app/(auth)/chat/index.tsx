@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Dimensions } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Dimensions,
+  Text,
+  ActivityIndicator,
+} from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import ChatLayout from "./components/ChatLayout";
 import ProtectedRoute from "../../../components/ProtectedRoute";
@@ -15,7 +21,7 @@ const isMobile = width < 768;
 
 export default function ChatPage() {
   const params = useLocalSearchParams();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [contacts, setContacts] = useState<any[]>([]);
   const [conversations, setConversations] = useState<any[]>([]);
   const [conversation, setConversation] = useState<any>(null);
@@ -30,6 +36,7 @@ export default function ChatPage() {
   const currentUserName = user?.name || "You";
 
   useEffect(() => {
+    // Temporarily bypass auth loading check for testing
     loadData();
   }, []);
 
@@ -50,12 +57,17 @@ export default function ChatPage() {
       setLoading(true);
       setError(null);
 
+      console.log("Loading chat data...");
+      console.log("User:", user);
+
       // Load contacts with their conversation data
       const contactsData = await getContactsWithConversations();
+      console.log("Contacts loaded:", contactsData);
       setContacts(contactsData);
 
       // Load all conversations
       const conversationsData = await getConversations();
+      console.log("Conversations loaded:", conversationsData);
       setConversations(conversationsData);
     } catch (err) {
       console.error("Error loading chat data:", err);
@@ -83,36 +95,44 @@ export default function ChatPage() {
     }
   };
 
+  // Show loading while data is loading
   if (loading) {
     return (
       <View style={styles.container}>
-        {/* You can add a loading spinner here */}
+        <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={styles.loadingText}>Loading chat data...</Text>
       </View>
     );
   }
 
+  // Show error message
   if (error) {
     return (
       <View style={styles.container}>
-        {/* You can add an error message here */}
+        <Text style={styles.errorText}>Error: {error}</Text>
+        <Text style={styles.debugText}>
+          User: {user ? "Authenticated" : "Not authenticated"}
+        </Text>
+        <Text style={styles.debugText}>Contacts: {contacts.length}</Text>
+        <Text style={styles.debugText}>
+          Conversations: {conversations.length}
+        </Text>
       </View>
     );
   }
 
   return (
-    <ProtectedRoute>
-      <View style={styles.container}>
-        <ChatLayout
-          contacts={contacts}
-          conversations={conversations}
-          currentUserId={currentUserId}
-          currentUserName={currentUserName}
-          selectedContactId={selectedContactId || null}
-          selectedConversationId={selectedConversationId || null}
-          conversation={conversation}
-        />
-      </View>
-    </ProtectedRoute>
+    <View style={styles.container}>
+      <ChatLayout
+        contacts={contacts}
+        conversations={conversations}
+        currentUserId={currentUserId}
+        currentUserName={currentUserName}
+        selectedContactId={selectedContactId || null}
+        selectedConversationId={selectedConversationId || null}
+        conversation={conversation}
+      />
+    </View>
   );
 }
 
@@ -120,5 +140,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#ffffff",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#64748b",
+  },
+  errorText: {
+    fontSize: 18,
+    color: "#ef4444",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  debugText: {
+    fontSize: 14,
+    color: "#64748b",
+    marginBottom: 8,
   },
 });

@@ -22,37 +22,14 @@ interface MiddlePanelProps {
   isMobile?: boolean;
 }
 
-const formatTime = (dateString: string) => {
-  try {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = (now.getTime() - date.getTime()) / (1000 * 60);
-
-    if (diffInMinutes < 1) {
-      return "now";
-    } else if (diffInMinutes < 60) {
-      return `${Math.floor(diffInMinutes)} min`;
-    } else if (diffInMinutes < 1440) {
-      return `${Math.floor(diffInMinutes / 60)}h`;
-    } else {
-      return `${Math.floor(diffInMinutes / 1440)}d`;
-    }
-  } catch (error) {
-    return "";
-  }
-};
-
 export default function MiddlePanel({
   conversations,
   currentUserId,
   selectedContactId,
   selectedConversationId,
-  isMobile: propIsMobile = false,
 }: MiddlePanelProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
   const router = useRouter();
-  const mobile = propIsMobile || isMobile;
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleSelectConversation = (conversationId: string) => {
     if (selectedContactId) {
@@ -60,223 +37,125 @@ export default function MiddlePanel({
     }
   };
 
-  // Filter conversations based on search and tab
+  // Filter conversations based on search
   const filteredConversations = conversations.filter((conversation) => {
-    // Text search filter
-    const searchMatch =
-      conversation.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conversation.lastMessage?.text
-        ?.toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      false;
+    const contactName =
+      conversation.Contractor?.name || conversation.User?.name || "";
+    const lastMessageText = conversation.Chat?.[0]?.text || "";
+    const subject = conversation.subject || "";
+    const query = searchQuery.toLowerCase();
 
-    // Tab filter
-    if (activeTab === "unread") {
-      const hasUnread = conversation.unreadCount > 0;
-      return searchQuery ? searchMatch && hasUnread : hasUnread;
-    }
-
-    return searchQuery ? searchMatch : true;
+    return (
+      contactName.toLowerCase().includes(query) ||
+      lastMessageText.toLowerCase().includes(query) ||
+      subject.toLowerCase().includes(query)
+    );
   });
 
-  const renderConversation = ({ item }: { item: any }) => {
-    const isSelected = selectedConversationId === item.id;
-    const lastMessage = item.lastMessage;
-    const unreadCount = item.unreadCount || 0;
+  const renderConversationItem = ({ item }: { item: any }) => {
+    const contactName = item.Contractor?.name || item.User?.name || "Unknown";
+    const lastMessage = item.Chat?.[0];
+    const unreadCount =
+      item.Chat?.filter(
+        (chat: any) => !chat.read && chat.sender_id !== currentUserId
+      ).length || 0;
 
     return (
       <TouchableOpacity
         style={[
           styles.conversationItem,
-          isSelected && styles.selectedConversation,
-          mobile && styles.conversationItemMobile,
+          selectedConversationId === item.id && styles.selectedConversation,
         ]}
         onPress={() => handleSelectConversation(item.id)}
-        activeOpacity={0.7}
       >
         <View style={styles.conversationContent}>
-          {/* Conversation Header */}
           <View style={styles.conversationHeader}>
-            <Text
-              style={[
-                styles.conversationSubject,
-                mobile && styles.conversationSubjectMobile,
-              ]}
-              numberOfLines={1}
-            >
-              {item.subject || "Untitled Conversation"}
+            <Text style={styles.conversationName} numberOfLines={1}>
+              {contactName}
             </Text>
             {lastMessage && (
-              <Text
-                style={[
-                  styles.conversationTime,
-                  mobile && styles.conversationTimeMobile,
-                ]}
-              >
+              <Text style={styles.conversationTime}>
                 {formatTime(lastMessage.date)}
               </Text>
             )}
           </View>
-
-          {/* Last Message */}
           {lastMessage && (
-            <Text
-              style={[styles.lastMessage, mobile && styles.lastMessageMobile]}
-              numberOfLines={2}
-            >
+            <Text style={styles.conversationPreview} numberOfLines={1}>
               {lastMessage.text}
             </Text>
           )}
-
-          {/* Unread indicator */}
-          {unreadCount > 0 && (
-            <View style={styles.unreadIndicator}>
-              <View
-                style={[styles.unreadDot, mobile && styles.unreadDotMobile]}
-              />
-              <Text
-                style={[styles.unreadText, mobile && styles.unreadTextMobile]}
-              >
-                {unreadCount} unread
-              </Text>
-            </View>
-          )}
         </View>
-
-        {/* Status indicators */}
-        <View style={styles.conversationStatus}>
-          {unreadCount > 0 && (
-            <View
-              style={[styles.unreadBadge, mobile && styles.unreadBadgeMobile]}
-            >
-              <Text
-                style={[
-                  styles.unreadBadgeText,
-                  mobile && styles.unreadBadgeTextMobile,
-                ]}
-              >
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </Text>
-            </View>
-          )}
-          <Ionicons
-            name="chevron-forward"
-            size={mobile ? 16 : 20}
-            color="#cbd5e1"
-          />
-        </View>
+        {unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadText}>{unreadCount}</Text>
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
 
-  return (
-    <View style={[styles.container, mobile && styles.containerMobile]}>
-      {/* Tabs */}
-      <View
-        style={[styles.tabsContainer, mobile && styles.tabsContainerMobile]}
-      >
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === "all" && styles.activeTab,
-            mobile && styles.tabMobile,
-          ]}
-          onPress={() => setActiveTab("all")}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "all" && styles.activeTabText,
-              mobile && styles.tabTextMobile,
-            ]}
-          >
-            All Chat
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tab,
-            activeTab === "unread" && styles.activeTab,
-            mobile && styles.tabMobile,
-          ]}
-          onPress={() => setActiveTab("unread")}
-        >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "unread" && styles.activeTabText,
-              mobile && styles.tabTextMobile,
-            ]}
-          >
-            Unread
-          </Text>
-        </TouchableOpacity>
-      </View>
+  const formatTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInMinutes = (now.getTime() - date.getTime()) / (1000 * 60);
 
+      if (diffInMinutes < 1) {
+        return "now";
+      } else if (diffInMinutes < 60) {
+        return `${Math.floor(diffInMinutes)} min`;
+      } else if (diffInMinutes < 1440) {
+        return `${Math.floor(diffInMinutes / 60)}h`;
+      } else {
+        return `${Math.floor(diffInMinutes / 1440)}d`;
+      }
+    } catch (error) {
+      return "";
+    }
+  };
+
+  return (
+    <View style={styles.container}>
       {/* Search Bar */}
-      <View
-        style={[styles.searchContainer, mobile && styles.searchContainerMobile]}
-      >
+      <View style={styles.searchContainer}>
         <Ionicons
           name="search"
-          size={mobile ? 16 : 20}
+          size={16}
           color="#64748b"
           style={styles.searchIcon}
         />
         <TextInput
-          style={[styles.searchInput, mobile && styles.searchInputMobile]}
+          style={styles.searchInput}
           placeholder="Search conversations..."
-          placeholderTextColor="#64748b"
           value={searchQuery}
           onChangeText={setSearchQuery}
+          placeholderTextColor="#64748b"
         />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setSearchQuery("")}
-            style={styles.clearButton}
-          >
-            <Ionicons
-              name="close-circle"
-              size={mobile ? 16 : 20}
-              color="#64748b"
-            />
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Conversations List */}
-      <FlatList
-        data={filteredConversations}
-        renderItem={renderConversation}
-        keyExtractor={(item) => item.id}
-        style={styles.conversationsList}
-        contentContainerStyle={[
-          styles.conversationsListContent,
-          mobile && styles.conversationsListContentMobile,
-        ]}
-        showsVerticalScrollIndicator={false}
-      />
-
-      {/* Empty State */}
-      {filteredConversations.length === 0 && (
-        <View style={[styles.emptyState, mobile && styles.emptyStateMobile]}>
-          <Ionicons
-            name="chatbubbles-outline"
-            size={mobile ? 48 : 64}
-            color="#cbd5e1"
-          />
-          <Text style={[styles.emptyText, mobile && styles.emptyTextMobile]}>
-            {searchQuery ? "No conversations found" : "No conversations yet"}
-          </Text>
-          {!searchQuery && (
-            <Text
-              style={[styles.emptySubtext, mobile && styles.emptySubtextMobile]}
-            >
-              Start a conversation to see it here
+      <View style={styles.conversationsContainer}>
+        {filteredConversations.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {searchQuery ? "No conversations found" : "No conversations yet"}
             </Text>
-          )}
-        </View>
-      )}
+            <Text style={styles.emptySubtext}>
+              {searchQuery
+                ? "Try a different search term"
+                : "Start a conversation to see messages here"}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredConversations}
+            renderItem={renderConversationItem}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.conversationsList}
+          />
+        )}
+      </View>
     </View>
   );
 }
@@ -366,6 +245,9 @@ const styles = StyleSheet.create({
   conversationsList: {
     flex: 1,
   },
+  conversationsContainer: {
+    flex: 1,
+  },
   conversationsListContent: {
     paddingHorizontal: 16,
     paddingBottom: 20,
@@ -404,6 +286,13 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 4,
   },
+  conversationName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1e293b",
+    flex: 1,
+    marginRight: 8,
+  },
   conversationSubject: {
     fontSize: 16,
     fontWeight: "600",
@@ -421,6 +310,12 @@ const styles = StyleSheet.create({
   },
   conversationTimeMobile: {
     fontSize: 11,
+  },
+  conversationPreview: {
+    fontSize: 14,
+    color: "#64748b",
+    lineHeight: 18,
+    marginBottom: 4,
   },
   lastMessage: {
     fontSize: 14,
@@ -490,6 +385,13 @@ const styles = StyleSheet.create({
   },
   emptyStateMobile: {
     paddingHorizontal: 24,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    paddingBottom: 20,
   },
   emptyText: {
     fontSize: 18,
