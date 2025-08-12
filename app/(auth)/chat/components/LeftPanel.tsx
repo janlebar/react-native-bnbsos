@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ interface LeftPanelProps {
   currentUserId: string;
   selectedContactId: string | null;
   selectedConversationId: string | null;
-  onSelectContact: (contactId: string) => void;
+  onSelectContact: (contactId: string | null) => void;
   onSelectConversation: (conversationId: string, contactId: string) => void;
 }
 
@@ -37,12 +37,42 @@ export default function LeftPanel({
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Filter conversations based on selected contact
+  const getFilteredConversations = () => {
+    if (!selectedContactId) {
+      return []; // No conversations shown when no contact is selected
+    }
+
+    return conversations.filter((conversation) => {
+      // Check if conversation is related to the selected contact
+      const isRelatedToContact =
+        conversation.Contractor?.id?.toString() === selectedContactId ||
+        conversation.User?.id === selectedContactId ||
+        conversation.contractorId?.toString() === selectedContactId ||
+        conversation.userId === selectedContactId;
+
+      return isRelatedToContact;
+    });
+  };
+
   const handleSelectContact = (contactId: string) => {
+    console.log("[LeftPanel] Selecting contact:", contactId);
     onSelectContact(contactId);
+  };
+
+  const handleClearSelection = () => {
+    console.log("[LeftPanel] Clearing contact selection");
+    onSelectContact(null);
   };
 
   const handleSelectConversation = (conversationId: string) => {
     if (selectedContactId) {
+      console.log(
+        "[LeftPanel] Selecting conversation:",
+        conversationId,
+        "for contact:",
+        selectedContactId
+      );
       onSelectConversation(conversationId, selectedContactId);
     }
   };
@@ -54,8 +84,9 @@ export default function LeftPanel({
       contact.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filter conversations based on search
-  const filteredConversations = conversations.filter(
+  // Get filtered conversations and apply search
+  const baseFilteredConversations = getFilteredConversations();
+  const filteredConversations = baseFilteredConversations.filter(
     (conversation) =>
       conversation.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       conversation.Chat?.[conversation.Chat.length - 1]?.text
@@ -63,90 +94,144 @@ export default function LeftPanel({
         .includes(searchQuery.toLowerCase())
   );
 
-  const renderContactAvatar = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={[
-        styles.avatarContainer,
-        selectedContactId === item.id && styles.selectedAvatar,
-      ]}
-      onPress={() => handleSelectContact(item.id)}
-    >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>
-          {item.name?.charAt(0)?.toUpperCase() ||
-            item.email?.charAt(0)?.toUpperCase() ||
-            "?"}
+  // Log filtering for debugging
+  useEffect(() => {
+    console.log("[LeftPanel] Filtering conversations:");
+    console.log("- Selected contact ID:", selectedContactId);
+    console.log("- Total conversations:", conversations.length);
+    console.log("- Filtered conversations:", baseFilteredConversations.length);
+    console.log("- After search filter:", filteredConversations.length);
+  }, [selectedContactId, conversations, searchQuery]);
+
+  const getContactName = (contact: any) => {
+    if (contact.name) return contact.name;
+    if (contact.email) return contact.email;
+    if (contact.contractor?.name) return contact.contractor.name;
+    return "Unknown Contact";
+  };
+
+  const getContactType = (contact: any) => {
+    if (contact.isContractor || contact.contractor) return "Contractor";
+    return "User";
+  };
+
+  const renderContactAvatar = ({ item }: { item: any }) => {
+    const contactName = getContactName(item);
+    const contactType = getContactType(item);
+    const isSelected = selectedContactId === item.id;
+
+    return (
+      <TouchableOpacity
+        style={[styles.avatarContainer, isSelected && styles.selectedAvatar]}
+        onPress={() => handleSelectContact(item.id)}
+      >
+        <View
+          style={[
+            styles.avatar,
+            contactType === "Contractor"
+              ? styles.contractorAvatar
+              : styles.userAvatar,
+          ]}
+        >
+          <Text style={styles.avatarText}>
+            {contactName.charAt(0)?.toUpperCase() || "?"}
+          </Text>
+        </View>
+        <Text style={styles.avatarName} numberOfLines={1}>
+          {contactName}
         </Text>
-      </View>
-      <Text style={styles.avatarName} numberOfLines={1}>
-        {item.name || item.email}
-      </Text>
-      {item.unreadCount > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadText}>{item.unreadCount}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
+        <Text style={styles.contactType} numberOfLines={1}>
+          {contactType}
+        </Text>
+        {item.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadText}>{item.unreadCount}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
-  const renderConversationItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={[
-        styles.conversationItem,
-        selectedConversationId === item.id && styles.selectedConversation,
-      ]}
-      onPress={() => handleSelectConversation(item.id)}
-    >
-      <View style={styles.conversationRow}>
-        {/* Avatar */}
-        <View style={styles.conversationAvatar}>
-          <Text style={styles.conversationAvatarText}>
-            {item.Contractor?.name?.charAt(0)?.toUpperCase() ||
-              item.User?.name?.charAt(0)?.toUpperCase() ||
-              item.subject?.charAt(0)?.toUpperCase() ||
-              "?"}
-          </Text>
-        </View>
+  const renderConversationItem = ({ item }: { item: any }) => {
+    const isSelected = selectedConversationId === item.id;
 
-        {/* Conversation Info */}
-        <View style={styles.conversationInfo}>
-          <Text style={styles.conversationName} numberOfLines={1}>
-            {item.Contractor?.name ||
-              item.User?.name ||
-              item.subject ||
-              "Conversation"}
-          </Text>
-          {item.Chat?.[0] && (
-            <Text style={styles.lastMessage} numberOfLines={1}>
-              {item.Chat[0].text}
+    // Determine the conversation partner's name
+    const getConversationName = () => {
+      if (item.Contractor?.name) return item.Contractor.name;
+      if (item.User?.name) return item.User.name;
+      if (item.subject) return item.subject;
+      return "Conversation";
+    };
+
+    const getConversationType = () => {
+      if (item.Contractor) return "with Contractor";
+      if (item.User) return "with User";
+      return "";
+    };
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.conversationItem,
+          isSelected && styles.selectedConversation,
+        ]}
+        onPress={() => handleSelectConversation(item.id)}
+      >
+        <View style={styles.conversationRow}>
+          {/* Avatar */}
+          <View
+            style={[
+              styles.conversationAvatar,
+              item.Contractor
+                ? styles.contractorConversationAvatar
+                : styles.userConversationAvatar,
+            ]}
+          >
+            <Text style={styles.conversationAvatarText}>
+              {getConversationName().charAt(0)?.toUpperCase() || "?"}
             </Text>
-          )}
-        </View>
+          </View>
 
-        {/* Time and Status */}
-        <View style={styles.conversationStatus}>
-          {item.Chat?.[0]?.date && (
-            <Text style={styles.messageTime}>
-              {formatTime(item.Chat[0].date)}
+          {/* Conversation Info */}
+          <View style={styles.conversationInfo}>
+            <Text style={styles.conversationName} numberOfLines={1}>
+              {getConversationName()}
             </Text>
-          )}
-          {item.Chat?.some(
-            (msg: any) => !msg.read && msg.sender_id !== currentUserId
-          ) && (
-            <View style={styles.unreadIndicator}>
-              <Text style={styles.unreadIndicatorText}>
-                {
-                  item.Chat?.filter(
-                    (msg: any) => !msg.read && msg.sender_id !== currentUserId
-                  ).length
-                }
+            <Text style={styles.conversationType} numberOfLines={1}>
+              {getConversationType()}
+            </Text>
+            {item.Chat?.[0] && (
+              <Text style={styles.lastMessage} numberOfLines={2}>
+                {item.Chat[0].text}
               </Text>
-            </View>
-          )}
+            )}
+          </View>
+
+          {/* Time and Status */}
+          <View style={styles.conversationStatus}>
+            {item.Chat?.[0]?.date && (
+              <Text style={styles.messageTime}>
+                {formatTime(item.Chat[0].date)}
+              </Text>
+            )}
+            {item.Chat?.some(
+              (msg: any) => !msg.read && msg.sender_id !== currentUserId
+            ) && (
+              <View style={styles.unreadIndicator}>
+                <Text style={styles.unreadIndicatorText}>
+                  {
+                    item.Chat?.filter(
+                      (msg: any) => !msg.read && msg.sender_id !== currentUserId
+                    ).length
+                  }
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const formatTime = (dateString: string) => {
     try {
@@ -180,7 +265,7 @@ export default function LeftPanel({
         />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search..."
+          placeholder="Search contacts and conversations..."
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholderTextColor="#64748b"
@@ -189,7 +274,17 @@ export default function LeftPanel({
 
       {/* Contacts Carousel - TOP SECTION */}
       <View style={styles.carouselContainer}>
-        <Text style={styles.sectionTitle}>Contacts</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Contacts</Text>
+          {selectedContactId && (
+            <TouchableOpacity
+              onPress={handleClearSelection}
+              style={styles.clearButton}
+            >
+              <Text style={styles.clearButtonText}>Clear Selection</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -211,12 +306,28 @@ export default function LeftPanel({
 
       {/* Conversations List - BOTTOM SECTION */}
       <View style={styles.conversationsContainer}>
-        <Text style={styles.sectionTitle}>Conversations</Text>
-        {filteredConversations.length === 0 ? (
+        <Text style={styles.sectionTitle}>
+          {selectedContactId
+            ? `Conversations with ${
+                filteredContacts.find((c) => c.id === selectedContactId)
+                  ?.name || "Contact"
+              }`
+            : "Select a contact to view conversations"}
+        </Text>
+        {!selectedContactId ? (
           <View style={styles.emptyContainer}>
+            <Ionicons name="person-outline" size={48} color="#cbd5e1" />
+            <Text style={styles.emptyText}>No contact selected</Text>
+            <Text style={styles.emptySubtext}>
+              Choose a contact from above to view their conversations
+            </Text>
+          </View>
+        ) : filteredConversations.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="chatbubble-outline" size={48} color="#cbd5e1" />
             <Text style={styles.emptyText}>No conversations found</Text>
             <Text style={styles.emptySubtext}>
-              Start a conversation to see messages here
+              Start a conversation with this contact
             </Text>
           </View>
         ) : (
@@ -259,12 +370,28 @@ const styles = StyleSheet.create({
   carouselContainer: {
     marginBottom: 16,
   },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#1f2937",
-    marginHorizontal: 16,
-    marginBottom: 12,
+  },
+  clearButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    backgroundColor: "#ef4444",
+    borderRadius: 16,
+  },
+  clearButtonText: {
+    fontSize: 12,
+    color: "#ffffff",
+    fontWeight: "500",
   },
   carouselContent: {
     paddingHorizontal: 16,
@@ -279,19 +406,28 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     alignItems: "center",
-    width: 60,
+    width: 70,
+    paddingVertical: 8,
   },
   selectedAvatar: {
-    opacity: 0.7,
+    backgroundColor: "#f0f9ff",
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#3b82f6",
   },
   avatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: "#3b82f6",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 4,
+  },
+  contractorAvatar: {
+    backgroundColor: "#8b5cf6",
+  },
+  userAvatar: {
+    backgroundColor: "#3b82f6",
   },
   avatarText: {
     color: "#ffffff",
@@ -300,13 +436,20 @@ const styles = StyleSheet.create({
   },
   avatarName: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#1f2937",
     textAlign: "center",
-    maxWidth: 60,
+    maxWidth: 70,
+    fontWeight: "500",
+  },
+  contactType: {
+    fontSize: 10,
+    color: "#6b7280",
+    textAlign: "center",
+    maxWidth: 70,
   },
   unreadBadge: {
     position: "absolute",
-    top: -2,
+    top: 4,
     right: 8,
     backgroundColor: "#ef4444",
     borderRadius: 10,
@@ -333,10 +476,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: "#e5e7eb",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   selectedConversation: {
     backgroundColor: "#f0f9ff",
     borderColor: "#3b82f6",
+    borderWidth: 2,
   },
   conversationRow: {
     flexDirection: "row",
@@ -346,10 +495,15 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#10b981",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
+  },
+  contractorConversationAvatar: {
+    backgroundColor: "#8b5cf6",
+  },
+  userConversationAvatar: {
+    backgroundColor: "#10b981",
   },
   conversationAvatarText: {
     color: "#ffffff",
@@ -366,15 +520,21 @@ const styles = StyleSheet.create({
     color: "#1f2937",
     marginBottom: 2,
   },
+  conversationType: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginBottom: 4,
+  },
   lastMessage: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#64748b",
+    lineHeight: 16,
   },
   conversationStatus: {
     alignItems: "flex-end",
   },
   messageTime: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#94a3b8",
     marginBottom: 4,
   },
@@ -388,7 +548,7 @@ const styles = StyleSheet.create({
   },
   unreadIndicatorText: {
     color: "#ffffff",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "600",
   },
   emptyContainer: {
@@ -402,6 +562,7 @@ const styles = StyleSheet.create({
     color: "#64748b",
     textAlign: "center",
     marginBottom: 8,
+    marginTop: 12,
   },
   emptySubtext: {
     fontSize: 14,
