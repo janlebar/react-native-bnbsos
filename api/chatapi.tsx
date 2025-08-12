@@ -27,6 +27,18 @@ export interface ChatMessage {
     name: string | null;
     email: string | null;
   };
+  // Enhanced sender/receiver info from API
+  sender?: {
+    id: string;
+    name: string;
+    type: "user" | "contractor";
+  };
+  receiver?: {
+    id: string;
+    name: string;
+    type: "user" | "contractor";
+  };
+  isFromCurrentUser?: boolean;
 }
 
 export interface Conversation {
@@ -49,6 +61,20 @@ export interface Conversation {
     name: string | null;
     email: string | null;
   };
+  // Enhanced conversation context
+  userRole?: "user" | "contractor";
+  otherParty?: any;
+  sender?: {
+    id: string;
+    name: string;
+    type: "user" | "contractor";
+  };
+  receiver?: {
+    id: string;
+    name: string;
+    type: "user" | "contractor";
+  };
+  conversationRole?: "user" | "contractor";
 }
 
 export interface Contact {
@@ -59,6 +85,28 @@ export interface Contact {
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount: number;
+  isContractor?: boolean;
+  conversationId?: string;
+  // Enhanced sender/receiver context
+  sender?: {
+    id: string;
+    name: string;
+    type: "user" | "contractor";
+  };
+  receiver?: {
+    id: string;
+    name: string;
+    type: "user" | "contractor";
+  };
+  conversationRole?: "user" | "contractor";
+  contractor?: {
+    id: number;
+    name: string;
+    city: string;
+    specializations: string[];
+    rating: number;
+    imageUrl?: string | null;
+  };
 }
 
 // Chat API class

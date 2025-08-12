@@ -18,6 +18,8 @@ interface LeftPanelProps {
   currentUserId: string;
   selectedContactId: string | null;
   selectedConversationId: string | null;
+  onSelectContact: (contactId: string) => void;
+  onSelectConversation: (conversationId: string, contactId: string) => void;
 }
 
 const { width } = Dimensions.get("window");
@@ -29,17 +31,19 @@ export default function LeftPanel({
   currentUserId,
   selectedContactId,
   selectedConversationId,
+  onSelectContact,
+  onSelectConversation,
 }: LeftPanelProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleSelectContact = (contactId: string) => {
-    router.push(`/chat/${contactId}`);
+    onSelectContact(contactId);
   };
 
   const handleSelectConversation = (conversationId: string) => {
     if (selectedContactId) {
-      router.push(`/chat/${selectedContactId}/${conversationId}`);
+      onSelectConversation(conversationId, selectedContactId);
     }
   };
 
