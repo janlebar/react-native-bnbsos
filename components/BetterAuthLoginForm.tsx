@@ -9,20 +9,19 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { loginApi } from "../api/authapi";
-import { useAuth } from "../lib/auth-context";
-import OAuthButtons from "./OAuthButtons";
+import { authClient } from "../lib/auth-client";
 
-interface LoginFormProps {
+interface BetterAuthLoginFormProps {
   isContractor?: boolean;
 }
 
-export default function LoginForm({ isContractor = false }: LoginFormProps) {
+export default function BetterAuthLoginForm({
+  isContractor = false,
+}: BetterAuthLoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPending, setIsPending] = useState(false);
   const router = useRouter();
-  const { signIn } = useAuth();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -33,40 +32,21 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
     setIsPending(true);
 
     try {
-      console.log("Starting login with email:", email.trim());
-      
-      const response = await loginApi({
+      // Use Better Auth signIn.email method
+      const result = await authClient.signIn.email({
         email: email.trim(),
         password,
-        isContractor,
       });
 
-      console.log("Login response received:", {
-        hasUser: !!response.user,
-        hasToken: !!response.token,
-        userId: response.user?.id,
-      });
+      if (result.data) {
+        Alert.alert("Success", "Login successful!");
 
-      // Use user data from the response
-      if (response.user) {
-        // Sign in the user and wait for state update
-        await signIn(response.user);
-        
-        console.log("User signed in, navigating...");
-        
-        // Use setTimeout to ensure React has re-rendered with new auth state
-        setTimeout(() => {
-          // Navigate based on user type
-          if (response.user.isContractor || isContractor) {
-            console.log("Navigating to /contractors/contractors");
-            router.replace("/contractors/contractors");
-          } else {
-            console.log("Navigating to /(auth)/home");
-            router.replace("/(auth)/home");
-          }
-        }, 100);
-      } else {
-        throw new Error("No user data in response");
+        // Navigate based on user type
+        if (isContractor) {
+          router.replace("/contractors/contractors");
+        } else {
+          router.replace("/(auth)/home");
+        }
       }
     } catch (error: any) {
       console.error("Login error:", error);
@@ -76,12 +56,33 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
     }
   };
 
-  const handleOAuthSuccess = (userData: any) => {
-    signIn(userData);
-    if (isContractor) {
-      router.replace("/contractors/contractors");
-    } else {
-      router.replace("/(auth)/home");
+  const handleGoogleLogin = async () => {
+    setIsPending(true);
+    try {
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: isContractor ? "/contractors" : "/home",
+      });
+    } catch (error: any) {
+      console.error("Google login error:", error);
+      Alert.alert("Google Login Failed", error.message || "Please try again");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleGithubLogin = async () => {
+    setIsPending(true);
+    try {
+      await authClient.signIn.social({
+        provider: "github",
+        callbackURL: isContractor ? "/contractors" : "/home",
+      });
+    } catch (error: any) {
+      console.error("GitHub login error:", error);
+      Alert.alert("GitHub Login Failed", error.message || "Please try again");
+    } finally {
+      setIsPending(false);
     }
   };
 
@@ -116,10 +117,7 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
 
         <TouchableOpacity
           style={[styles.button, isPending && styles.buttonDisabled]}
-          onPress={() => {
-            console.log("🔘 Login button pressed!");
-            handleLogin();
-          }}
+          onPress={handleLogin}
           disabled={isPending}
         >
           {isPending ? (
@@ -129,11 +127,32 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
           )}
         </TouchableOpacity>
 
-        <OAuthButtons
-          isContractor={isContractor}
-          disabled={isPending}
-          onSuccess={handleOAuthSuccess}
-        />
+        {/* Social Login Buttons */}
+        <View style={styles.socialButtons}>
+          <TouchableOpacity
+            style={[
+              styles.socialButton,
+              styles.googleButton,
+              isPending && styles.buttonDisabled,
+            ]}
+            onPress={handleGoogleLogin}
+            disabled={isPending}
+          >
+            <Text style={styles.socialButtonText}>Login with Google</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.socialButton,
+              styles.githubButton,
+              isPending && styles.buttonDisabled,
+            ]}
+            onPress={handleGithubLogin}
+            disabled={isPending}
+          >
+            <Text style={styles.socialButtonText}>Login with GitHub</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.links}>
           <TouchableOpacity
@@ -196,6 +215,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  socialButtons: {
+    gap: 10,
+    marginBottom: 20,
+  },
+  socialButton: {
+    padding: 15,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  googleButton: {
+    backgroundColor: "#4285f4",
+  },
+  githubButton: {
+    backgroundColor: "#333333",
+  },
+  socialButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   links: {
     alignItems: "center",
     gap: 10,
@@ -206,3 +245,8 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 });
+
+
+
+
+

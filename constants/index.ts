@@ -1,69 +1,76 @@
 /**
  * Application Constants
+ * Better Auth Integration
  *
  * This file centralizes all constants used across the application.
  * Import from this file instead of defining constants in individual files.
  */
 
-// Authentication Constants
-export const COOKIE_NAME = "auth_token";
-export const REFRESH_COOKIE_NAME = "refresh_token";
-export const COOKIE_MAX_AGE = 20; // 20 seconds
-export const JWT_EXPIRATION_TIME = "20s"; // 20 seconds
-export const REFRESH_TOKEN_EXPIRY = "30d"; // 30 days
+// Environment Constants
+export const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
+export const APP_SCHEME = process.env.EXPO_PUBLIC_SCHEME || "myapp";
+
+// Better Auth Token Constants
+export const ACCESS_TOKEN_EXPIRY = "20s"; // 20 seconds (as per lib/jwt.ts in Next.js)
+export const REFRESH_TOKEN_EXPIRY = "30d"; // 30 days (as per lib/jwt.ts in Next.js)
+export const ACCESS_TOKEN_MAX_AGE = 20; // 20 seconds
 export const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 
-// Refresh Token Constants
-export const REFRESH_BEFORE_EXPIRY_SEC = 60; // Refresh token 1 minute before expiry
+// Token Refresh Settings
+export const REFRESH_BEFORE_EXPIRY_SEC = 15; // Refresh token 15 seconds before expiry (since access token is 20s)
 
-// Google OAuth Constants
-export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
-export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
-export const GOOGLE_REDIRECT_URI = `${process.env.EXPO_PUBLIC_BASE_URL}/api/auth/callback/google`;
-export const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
+// Better Auth API Endpoints
+export const API_ENDPOINTS = {
+  // Auth endpoints
+  LOGIN: "/api/mobile/auth/login",
+  REGISTER: "/api/mobile/auth/register",
+  LOGOUT: "/api/auth/sign-out",
+  SESSION: "/api/auth/session",
+  REFRESH: "/api/mobile/auth/refresh",
+  RESET_PASSWORD_REQUEST: "/api/mobile/auth/reset-password", // POST
+  RESET_PASSWORD_COMPLETE: "/api/mobile/auth/reset-password", // PATCH
 
-// Apple OAuth Constants
-export const APPLE_CLIENT_ID = "com.bnbsos.nativebnbsos.web";
-export const APPLE_CLIENT_SECRET = process.env.APPLE_CLIENT_SECRET!;
-export const APPLE_REDIRECT_URI = `${process.env.EXPO_PUBLIC_BASE_URL}/api/auth/callback/apple`;
-export const APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize";
-
-// Environment Constants
-export const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL;
-export const APP_SCHEME = process.env.EXPO_PUBLIC_SCHEME;
-export const JWT_SECRET = process.env.JWT_SECRET!;
-
-// Cookie Settings
-export const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: true,
-  sameSite: "Lax" as const,
-  path: "/",
-  maxAge: COOKIE_MAX_AGE,
+  // Chat endpoints (to be implemented in Next.js)
+  CONVERSATIONS: "/api/mobile/chat/conversations",
+  CONVERSATION_BY_ID: (id: string) => `/api/mobile/chat/conversations/${id}`,
+  MESSAGES: "/api/mobile/chat/messages",
+  SEND_MESSAGE: "/api/mobile/chat/messages",
+  
+  // Contractor endpoints (to be implemented in Next.js)
+  CONTRACTORS: "/api/mobile/contractors",
+  CONTRACTOR_BY_ID: (id: number) => `/api/mobile/contractors/${id}`,
 };
 
-export const REFRESH_COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: true,
-  sameSite: "Lax" as const,
-  path: "/api/auth/refresh", // Restrict to refresh endpoint only
-  maxAge: REFRESH_TOKEN_MAX_AGE,
+// Storage Keys
+export const STORAGE_KEYS = {
+  ACCESS_TOKEN: "better_auth_access_token",
+  REFRESH_TOKEN: "better_auth_refresh_token",
+  USER_DATA: "better_auth_user_data",
 };
 
-// OAuth Providers
+// OAuth Providers (for Better Auth)
 export const OAUTH_PROVIDERS = [
   {
     id: "google",
     name: "Google",
-    clientId: GOOGLE_CLIENT_ID,
-    authUrl: GOOGLE_AUTH_URL,
-    redirectUri: GOOGLE_REDIRECT_URI,
+    authUrl: `${BASE_URL}/api/auth/sign-in/social`,
   },
   {
-    id: "apple",
-    name: "Apple",
-    clientId: APPLE_CLIENT_ID,
-    authUrl: APPLE_AUTH_URL,
-    redirectUri: APPLE_REDIRECT_URI,
+    id: "github",
+    name: "GitHub",
+    authUrl: `${BASE_URL}/api/auth/sign-in/social`,
   },
 ];
+
+// User Roles
+export enum UserRole {
+  USER = "USER",
+  ADMIN = "ADMIN",
+}
+
+// App Configuration
+export const APP_CONFIG = {
+  name: "BnbSos Native",
+  scheme: APP_SCHEME,
+  baseUrl: BASE_URL,
+};

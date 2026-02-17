@@ -40,29 +40,135 @@ export default function LeftPanel({
   // Filter conversations based on selected contact
   const getFilteredConversations = () => {
     if (!selectedContactId) {
+      console.log("[LeftPanel] No contact selected, returning empty array");
       return []; // No conversations shown when no contact is selected
     }
 
-    return conversations.filter((conversation) => {
-      // Check if conversation is related to the selected contact
-      const isRelatedToContact =
-        conversation.Contractor?.id?.toString() === selectedContactId ||
-        conversation.User?.id === selectedContactId ||
-        conversation.contractorId?.toString() === selectedContactId ||
-        conversation.userId === selectedContactId;
+    console.log(
+      "[LeftPanel] 🔍 Starting conversation filtering for contact:",
+      selectedContactId
+    );
+    console.log(
+      "[LeftPanel] Available conversations count:",
+      conversations.length
+    );
 
-      return isRelatedToContact;
+    const filteredResults = conversations.filter((conversation) => {
+      // The key insight: we need to find conversations where the selected contact
+      // is the OTHER PARTY (not the current user)
+
+      // Debug logging for each conversation
+      console.log(
+        "[LeftPanel] Checking conversation for contact",
+        selectedContactId,
+        ":",
+        {
+          conversationId: conversation.id,
+          conversationUserId: conversation.userId,
+          conversationContractorId: conversation.contractorId,
+          conversationUserName: conversation.User?.name,
+          conversationContractorName: conversation.Contractor?.name,
+          conversationUserObjectId: conversation.User?.id,
+          conversationContractorObjectId: conversation.Contractor?.id,
+        }
+      );
+
+      // Find the contact in our contacts array to understand their role
+      const selectedContact = contacts.find((c) => c.id === selectedContactId);
+
+      if (!selectedContact) {
+        console.log(
+          "[LeftPanel] ❌ Contact not found in contacts array for ID:",
+          selectedContactId
+        );
+        console.log(
+          "[LeftPanel] Available contact IDs:",
+          contacts.map((c) => c.id)
+        );
+        return false;
+      }
+
+      console.log("[LeftPanel] Selected contact details:", {
+        id: selectedContact.id,
+        name: selectedContact.name,
+        isContractor: selectedContact.isContractor,
+        conversationRole: selectedContact.conversationRole,
+        conversationId: selectedContact.conversationId,
+      });
+
+      // Method 1: Use the conversationId from the contact (most reliable)
+      if (
+        selectedContact.conversationId &&
+        conversation.id === selectedContact.conversationId
+      ) {
+        console.log(
+          "[LeftPanel] ✅ Match via conversationId:",
+          selectedContact.conversationId
+        );
+        return true;
+      }
+
+      // Method 2: Match based on role and IDs
+      let isMatch = false;
+
+      if (selectedContact.isContractor) {
+        // Contact is a contractor, so they should be the contractor in the conversation
+        isMatch =
+          conversation.contractorId?.toString() === selectedContactId ||
+          conversation.contractorId === parseInt(selectedContactId) ||
+          conversation.Contractor?.id?.toString() === selectedContactId ||
+          conversation.Contractor?.id === parseInt(selectedContactId);
+        console.log("[LeftPanel] Contractor match check:", {
+          contactId: selectedContactId,
+          conversationContractorId: conversation.contractorId,
+          conversationContractorObjectId: conversation.Contractor?.id,
+          isMatch,
+        });
+      } else {
+        // Contact is a user, so they should be the user in the conversation
+        isMatch =
+          conversation.userId === selectedContactId ||
+          conversation.User?.id === selectedContactId;
+        console.log("[LeftPanel] User match check:", {
+          contactId: selectedContactId,
+          conversationUserId: conversation.userId,
+          conversationUserObjectId: conversation.User?.id,
+          isMatch,
+        });
+      }
+
+      console.log(
+        "[LeftPanel] Final match result for conversation",
+        conversation.id,
+        ":",
+        isMatch
+      );
+      return isMatch;
     });
+
+    console.log(
+      "[LeftPanel] 🎯 Final filtered conversations count:",
+      filteredResults.length
+    );
+    console.log(
+      "[LeftPanel] Filtered conversation IDs:",
+      filteredResults.map((c) => c.id)
+    );
+    return filteredResults;
   };
 
   const handleSelectContact = (contactId: string) => {
     console.log("[LeftPanel] Selecting contact:", contactId);
     onSelectContact(contactId);
+    // Navigate to the contact-specific route
+    router.push(`/chat/${contactId}`);
   };
 
   const handleClearSelection = () => {
     console.log("[LeftPanel] Clearing contact selection");
     onSelectContact(null);
+    // Navigate back to the main chat route
+    router.push("/chat");
   };
 
   const handleSelectConversation = (conversationId: string) => {
@@ -87,21 +193,86 @@ export default function LeftPanel({
   // Get filtered conversations and apply search
   const baseFilteredConversations = getFilteredConversations();
   const filteredConversations = baseFilteredConversations.filter(
-    (conversation) =>
-      conversation.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conversation.Chat?.[conversation.Chat.length - 1]?.text
+    (conversation) => {
+      const searchLower = searchQuery.toLowerCase();
+      const subjectMatch = conversation.subject
         ?.toLowerCase()
-        .includes(searchQuery.toLowerCase())
+        .includes(searchLower);
+      const lastMessageMatch = conversation.Chat?.[
+        conversation.Chat.length - 1
+      ]?.text
+        ?.toLowerCase()
+        .includes(searchLower);
+
+      const isMatch = subjectMatch || lastMessageMatch;
+
+      // Debug search filtering
+      if (searchQuery && !isMatch) {
+        console.log("[LeftPanel] 🔍 Search filter removed conversation:", {
+          conversationId: conversation.id,
+          subject: conversation.subject,
+          lastMessage: conversation.Chat?.[conversation.Chat.length - 1]?.text,
+          searchQuery,
+          subjectMatch,
+          lastMessageMatch,
+        });
+      }
+
+      return isMatch;
+    }
   );
 
   // Log filtering for debugging
   useEffect(() => {
-    console.log("[LeftPanel] Filtering conversations:");
+    console.log("[LeftPanel] ===== FILTERING DEBUG =====");
     console.log("- Selected contact ID:", selectedContactId);
+    console.log("- Current user ID:", currentUserId);
     console.log("- Total conversations:", conversations.length);
+    console.log("- Total contacts:", contacts.length);
+
+    // Log all contacts for debugging
+    console.log(
+      "- All contacts:",
+      contacts.map((c) => ({
+        id: c.id,
+        name: c.name,
+        isContractor: c.isContractor,
+        conversationRole: c.conversationRole,
+        conversationId: c.conversationId,
+      }))
+    );
+
+    // Log all conversations for debugging
+    console.log(
+      "- All conversations:",
+      conversations.map((c) => ({
+        id: c.id,
+        userId: c.userId,
+        contractorId: c.contractorId,
+        userName: c.User?.name,
+        contractorName: c.Contractor?.name,
+        userRole: c.userRole,
+        conversationRole: c.conversationRole,
+      }))
+    );
+
+    const baseFilteredConversations = getFilteredConversations();
     console.log("- Filtered conversations:", baseFilteredConversations.length);
     console.log("- After search filter:", filteredConversations.length);
+    console.log("[LeftPanel] ===== END DEBUG =====");
   }, [selectedContactId, conversations, searchQuery]);
+
+  // Additional check for conversations data
+  useEffect(() => {
+    if (conversations && conversations.length > 0) {
+      console.log("[LeftPanel] ✅ Conversations data received successfully");
+      console.log("[LeftPanel] First conversation sample:", conversations[0]);
+    } else {
+      console.log(
+        "[LeftPanel] ⚠️ No conversations data received or empty array"
+      );
+    }
+  }, [conversations]);
 
   const getContactName = (contact: any) => {
     if (contact.name) return contact.name;
@@ -314,6 +485,25 @@ export default function LeftPanel({
               }`
             : "Select a contact to view conversations"}
         </Text>
+
+        {/* Debug Info - Temporary */}
+        {selectedContactId && (
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugText}>
+              Debug: Contact ID: {selectedContactId}
+            </Text>
+            <Text style={styles.debugText}>
+              Total Conversations: {conversations.length}
+            </Text>
+            <Text style={styles.debugText}>
+              Filtered Conversations: {getFilteredConversations().length}
+            </Text>
+            <Text style={styles.debugText}>
+              Search Filtered: {filteredConversations.length}
+            </Text>
+          </View>
+        )}
+
         {!selectedContactId ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="person-outline" size={48} color="#cbd5e1" />
@@ -568,5 +758,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#9ca3af",
     textAlign: "center",
+  },
+  debugContainer: {
+    backgroundColor: "#f0f9eb",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+  },
+  debugText: {
+    fontSize: 12,
+    color: "#065f46",
+    marginBottom: 4,
   },
 });

@@ -1,15 +1,10 @@
-// src/api/chat.ts
+// api/chatapi.tsx
+// Updated to use JWT token authentication
 
-import axios, { AxiosResponse } from "axios";
 import { User } from "./types";
+import { api } from "./authapi"; // Import the authenticated axios instance
 
-const API_URL = "http://localhost:3000/api"; // Replace with your actual Next.js app URL
-
-// Create axios instance with default config
-const api = axios.create({
-  baseURL: API_URL,
-  withCredentials: true, // Important for NextAuth session cookies
-});
+const API_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
 
 // Types based on Prisma schema
 export interface ChatMessage {
@@ -111,13 +106,14 @@ export interface Contact {
 
 // Chat API class
 class ChatService {
-  // Test if user is correctly signed in
+  // Test if user is correctly signed in (using JWT token)
   async testAuthentication(): Promise<{
     isAuthenticated: boolean;
     user?: User;
   }> {
     try {
-      const response = await api.get("/auth/session");
+      // The api instance already includes the JWT token via interceptors
+      const response = await api.get("/api/auth/session");
       if (response.data.user) {
         return {
           isAuthenticated: true,
@@ -134,13 +130,8 @@ class ChatService {
   // Get all conversations for the current user
   async getConversations(): Promise<Conversation[]> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
-      const response = await api.get("/chat/conversations");
+      // The api instance already includes JWT token authentication
+      const response = await api.get("/api/chat/conversations");
       return response.data;
     } catch (error: any) {
       console.error("Error fetching conversations:", error);
@@ -158,21 +149,12 @@ class ChatService {
     contractorId: number
   ): Promise<Conversation[]> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
       const response = await api.get(
-        `/chat/conversations/contractor/${contractorId}`
+        `/api/chat/conversations/contractor/${contractorId}`
       );
       return response.data;
     } catch (error: any) {
       console.error("Error fetching contractor conversations:", error);
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to view conversations");
-      }
       throw new Error(
         error.response?.data?.error ||
           "Failed to fetch contractor conversations"
@@ -183,19 +165,10 @@ class ChatService {
   // Get a specific conversation with its messages
   async getConversation(conversationId: string): Promise<Conversation> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
-      const response = await api.get(`/chat/conversations/${conversationId}`);
+      const response = await api.get(`/api/chat/conversations/${conversationId}`);
       return response.data;
     } catch (error: any) {
       console.error("Error fetching conversation:", error);
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to view this conversation");
-      }
       throw new Error(
         error.response?.data?.error || "Failed to fetch conversation"
       );
@@ -205,19 +178,10 @@ class ChatService {
   // Get all contacts for the current user
   async getContacts(): Promise<Contact[]> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
-      const response = await api.get("/chat/contacts");
+      const response = await api.get("/api/chat/contacts");
       return response.data;
     } catch (error: any) {
       console.error("Error fetching contacts:", error);
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to view contacts");
-      }
       throw new Error(
         error.response?.data?.error || "Failed to fetch contacts"
       );
@@ -227,19 +191,10 @@ class ChatService {
   // Get contacts with conversation data (for the carousel and list view)
   async getContactsWithConversations(): Promise<Contact[]> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
-      const response = await api.get("/chat/contacts/with-conversations");
+      const response = await api.get("/api/chat/contacts/with-conversations");
       return response.data;
     } catch (error: any) {
       console.error("Error fetching contacts with conversations:", error);
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to view contacts");
-      }
       throw new Error(
         error.response?.data?.error ||
           "Failed to fetch contacts with conversations"
@@ -247,7 +202,7 @@ class ChatService {
     }
   }
 
-  // Send a message - uses session authentication only
+  // Send a message - JWT token authentication via interceptors
   async sendMessage(
     senderId: string,
     receiverId: string,
@@ -255,12 +210,6 @@ class ChatService {
     conversationId?: string
   ): Promise<ChatMessage> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
       const messageData = {
         text: content,
         sender_id: senderId,
@@ -269,93 +218,55 @@ class ChatService {
         subject: "New Message", // Default subject
       };
 
-      const response = await api.post("/chat/messages", messageData, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await api.post("/api/chat/messages", messageData);
       return response.data;
     } catch (error: any) {
       console.error("Error sending message:", error);
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to send messages");
-      }
       throw new Error(error.response?.data?.error || "Failed to send message");
     }
   }
 
-  // Create a new conversation - uses session authentication only
+  // Create a new conversation - JWT token authentication via interceptors
   async createConversation(
     userId: string,
     contractorId: number,
     subject?: string
   ): Promise<Conversation> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
       const conversationData = {
         userId,
         contractorId,
         subject: subject || "New Conversation",
       };
 
-      const response = await api.post("/chat/conversations", conversationData, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await api.post("/api/chat/conversations", conversationData);
       return response.data;
     } catch (error: any) {
       console.error("Error creating conversation:", error);
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to create conversations");
-      }
       throw new Error(
         error.response?.data?.error || "Failed to create conversation"
       );
     }
   }
 
-  // Mark messages as read - uses session authentication only
+  // Mark messages as read - JWT token authentication via interceptors
   async markMessagesAsRead(conversationId: string): Promise<void> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
-      await api.put(`/chat/conversations/${conversationId}/read`, {});
+      await api.put(`/api/chat/conversations/${conversationId}/read`, {});
     } catch (error: any) {
       console.error("Error marking messages as read:", error);
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to mark messages as read");
-      }
       throw new Error(
         error.response?.data?.error || "Failed to mark messages as read"
       );
     }
   }
 
-  // Delete a message - uses session authentication only
+  // Delete a message - JWT token authentication via interceptors
   async deleteMessage(messageId: string): Promise<void> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
-      await api.delete(`/chat/messages/${messageId}`);
+      await api.delete(`/api/chat/messages/${messageId}`);
     } catch (error: any) {
       console.error("Error deleting message:", error);
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to delete messages");
-      }
       throw new Error(
         error.response?.data?.error || "Failed to delete message"
       );
@@ -365,13 +276,7 @@ class ChatService {
   // Get unread message count for a user
   async getUnreadCount(): Promise<number> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        return 0; // Return 0 if not authenticated
-      }
-
-      const response = await api.get("/chat/unread-count");
+      const response = await api.get("/api/chat/unread-count");
       return response.data.count;
     } catch (error: any) {
       console.error("Error fetching unread count:", error);
@@ -382,21 +287,12 @@ class ChatService {
   // Search conversations
   async searchConversations(query: string): Promise<Conversation[]> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
       const response = await api.get(
-        `/chat/conversations/search?q=${encodeURIComponent(query)}`
+        `/api/chat/conversations/search?q=${encodeURIComponent(query)}`
       );
       return response.data;
     } catch (error: any) {
       console.error("Error searching conversations:", error);
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to search conversations");
-      }
       throw new Error(
         error.response?.data?.error || "Failed to search conversations"
       );
@@ -408,22 +304,13 @@ class ChatService {
     contractorId: number
   ): Promise<Conversation | null> {
     try {
-      // First check if user is authenticated
-      const authCheck = await this.testAuthentication();
-      if (!authCheck.isAuthenticated) {
-        throw new Error("User not authenticated");
-      }
-
       const response = await api.get(
-        `/chat/conversations/contractor/${contractorId}/current`
+        `/api/chat/conversations/contractor/${contractorId}/current`
       );
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
         return null; // No conversation exists
-      }
-      if (error.message === "User not authenticated") {
-        throw new Error("Please sign in to view conversations");
       }
       console.error("Error fetching conversation by contractor:", error);
       throw new Error(
@@ -436,7 +323,7 @@ class ChatService {
   // Get current user session
   async getCurrentUser(): Promise<User | null> {
     try {
-      const response = await api.get("/auth/session");
+      const response = await api.get("/api/auth/session");
       return response.data.user || null;
     } catch (error: any) {
       return null; // User not authenticated
