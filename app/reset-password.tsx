@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { useForm, Controller } from "react-hook-form";
 import { TextInput, Button } from "react-native-paper";
-import { resetApi } from "../api/authapi";
+import { resetPasswordRequestApi } from "../api/authapi";
 import { useRouter } from "expo-router";
 
 type ResetFormValues = {
@@ -34,7 +34,7 @@ export default function ResetForm() {
     const email = values.email.trim().toLowerCase();
 
     startTransition(() => {
-      resetApi({ email })
+      resetPasswordRequestApi(email)
         .then(() => {
           setSuccess("Reset email sent successfully!");
           reset();
