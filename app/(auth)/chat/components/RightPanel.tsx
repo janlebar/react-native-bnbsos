@@ -9,6 +9,10 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import MessageInput from "./MessageInput";
+import TimeSlotMessage from "./TimeSlotMessage";
+import LocationMessage from "./LocationMessage";
+import SchedulePlanner from "./SchedulePlanner";
 
 interface RightPanelProps {
   messages: any[];
@@ -18,6 +22,7 @@ interface RightPanelProps {
   selectedContactId?: string | null;
   conversation?: any;
   onSendMessage?: (text: string) => void;
+  onBack?: () => void;
 }
 
 const { width } = Dimensions.get("window");
@@ -30,9 +35,11 @@ export default function RightPanel({
   selectedContactId,
   conversation,
   onSendMessage,
+  onBack,
 }: RightPanelProps) {
   const [displayedMessages, setDisplayedMessages] = useState(messages);
   const scrollViewRef = useRef<ScrollView>(null);
+  const [showSchedule, setShowSchedule] = useState(false);
 
   // Sync displayedMessages with props when messages change
   useEffect(() => {
@@ -141,6 +148,32 @@ export default function RightPanel({
 
   const contactInfo = getContactInfo();
 
+  const isContractorForConversation =
+    !!conversation &&
+    conversation.Contractor &&
+    conversation.Contractor.user &&
+    conversation.Contractor.user.id === currentUserId;
+
+  const contractorIdForConversation: number | undefined =
+    conversation?.Contractor?.id;
+
+  const getMessageType = (text: string) => {
+    if (
+      typeof text === "string" &&
+      (text.startsWith("PROPOSED_TIMESLOT::") ||
+        text.startsWith("APPROVED_TIMESLOT::"))
+    ) {
+      return "timeslot";
+    }
+    if (
+      typeof text === "string" &&
+      /Location: https:\/\/www\.google\.com\/maps\?q=/.test(text)
+    ) {
+      return "location";
+    }
+    return "text";
+  };
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -183,10 +216,25 @@ export default function RightPanel({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.contactName}>{contactInfo.name}</Text>
-        <Text style={styles.contactType}>
-          {contactInfo.type === "contractor" ? "Contractor" : "User"}
-        </Text>
+        <View>
+          <Text style={styles.contactName}>{contactInfo.name}</Text>
+          <Text style={styles.contactType}>
+            {contactInfo.type === "contractor" ? "Contractor" : "User"}
+          </Text>
+        </View>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={() => setShowSchedule(true)}
+            style={styles.iconButton}
+          >
+            <Ionicons name="time-outline" size={20} color="#4b5563" />
+          </TouchableOpacity>
+          {onBack && (
+            <TouchableOpacity onPress={onBack} style={styles.iconButton}>
+              <Ionicons name="close" size={20} color="#4b5563" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Messages */}
@@ -208,6 +256,7 @@ export default function RightPanel({
             const senderName = getSenderName(message);
             const senderType = getSenderType(message);
             const isDeleted = message.deleted;
+            const messageType = getMessageType(message.text);
 
             return (
               <View
@@ -249,14 +298,31 @@ export default function RightPanel({
                   </View>
 
                   {/* Message content */}
-                  <Text
-                    style={[
-                      styles.messageText,
-                      isDeleted && styles.deletedMessageText,
-                    ]}
-                  >
-                    {isDeleted ? "Message was deleted" : message.text}
-                  </Text>
+                  {isDeleted ? (
+                    <Text
+                      style={[styles.messageText, styles.deletedMessageText]}
+                    >
+                      Message was deleted
+                    </Text>
+                  ) : messageType === "timeslot" ? (
+                    <TimeSlotMessage
+                      messageText={message.text}
+                      messageId={message.id}
+                      isContractor={isContractorForConversation}
+                      contractorId={contractorIdForConversation}
+                      onMessageUpdate={(updated) => {
+                        setDisplayedMessages((prev) =>
+                          prev.map((m) =>
+                            m.id === updated.id ? { ...m, ...updated } : m
+                          )
+                        );
+                      }}
+                    />
+                  ) : messageType === "location" ? (
+                    <LocationMessage text={message.text} />
+                  ) : (
+                    <Text style={styles.messageText}>{message.text}</Text>
+                  )}
 
                   {/* Message footer */}
                   <View style={styles.messageFooter}>
@@ -282,6 +348,43 @@ export default function RightPanel({
           })
         )}
       </ScrollView>
+
+      {/* Message Input */}
+      <MessageInput
+        conversationId={selectedConversationId || undefined}
+        receiverId={contactInfo.receiverId || undefined}
+        receiverName={contactInfo.name}
+        onMessageSent={(newMessage) => {
+          setDisplayedMessages((prev) => [...prev, newMessage]);
+          setTimeout(
+            () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+            100
+          );
+        }}
+      />
+
+      {/* Schedule Planner Overlay */}
+      {showSchedule && (
+        <View style={styles.scheduleOverlay}>
+          <View style={styles.scheduleSheet}>
+            <View style={styles.scheduleHeader}>
+              <Text style={styles.scheduleTitle}>Schedule</Text>
+              <TouchableOpacity onPress={() => setShowSchedule(false)}>
+                <Ionicons name="close" size={22} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+            <SchedulePlanner
+              onViewConversation={(conversationId) => {
+                setShowSchedule(false);
+                console.log(
+                  "[RightPanel] onViewConversation from SchedulePlanner:",
+                  conversationId
+                );
+              }}
+            />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -307,6 +410,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
     backgroundColor: "#ffffff",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   contactName: {
     fontSize: 18,
@@ -412,5 +523,39 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     padding: 4,
+  },
+  iconButton: {
+    padding: 6,
+    borderRadius: 999,
+    backgroundColor: "#f3f4f6",
+  },
+  scheduleOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  scheduleSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "75%",
+  },
+  scheduleHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  scheduleTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
   },
 });
