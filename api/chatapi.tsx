@@ -104,6 +104,53 @@ export interface Contact {
   };
 }
 
+// ─── Additional types for advanced chat features ──────────────────────────────
+
+export interface ContactV2 {
+  id: string;
+  name: string | null;
+  email: string | null;
+  unreadCount: number;
+  lastMessagePreview: string | null;
+  lastMessageDate: string | null;
+  isContractor: boolean;
+  contractor?: { id: number; name: string };
+}
+
+export interface ConversationBetween {
+  id: string;
+  subject: string | null;
+  startedAt: string;
+  User: { id: string; name: string | null; email: string | null };
+  Contractor: { user: { id: string; name: string | null; email: string | null } };
+  Chat: { text: string; date: string }[];
+  _count: { Chat: number };
+}
+
+export interface AvailabilitySlot {
+  id: string;
+  dayOfWeek: number;
+  startTime: string; // ISO string
+  endTime: string; // ISO string
+  status: string; // "CONFIRMED" | "PENDING" | etc.
+  contractorId: number;
+}
+
+export interface ScheduledAppointment {
+  id: string;
+  startTime: string;
+  endTime: string;
+  approvedAt: string;
+  availabilitySlotId: string;
+  conversationId: string;
+  contractor: {
+    id: number;
+    name: string;
+    specializations: string[];
+    userName?: string;
+  };
+}
+
 // Chat API class
 class ChatService {
   // Test if user is correctly signed in (using JWT token)
@@ -320,6 +367,76 @@ class ChatService {
     }
   }
 
+  // ─── Advanced chat methods for chattwo-style features ───────────────────────
+
+  // 13) Contacts with unread count + last message preview (chattwo format)
+  async getContactsV2(): Promise<ContactV2[]> {
+    const response = await api.get("/api/chat/contacts/v2");
+    return response.data;
+  }
+
+  // 14) All conversations between current user and a specific contact
+  async getConversationsBetween(contactId: string): Promise<ConversationBetween[]> {
+    const response = await api.get(`/api/chat/conversations/between/${contactId}`);
+    return response.data;
+  }
+
+  // 15) Resolve contractor ID from a user ID
+  async getContractorByUserId(
+    userId: string
+  ): Promise<{ success: boolean; contractorId?: number; contractorName?: string }> {
+    const response = await api.get(`/api/contractors/by-user/${userId}`);
+    return response.data;
+  }
+
+  // 16) Get contractor availability slots for calendar modal
+  async getContractorAvailability(
+    contractorId: number
+  ): Promise<{ success: boolean; availabilitySlots: AvailabilitySlot[] }> {
+    const response = await api.get(`/api/contractors/${contractorId}/availability`);
+    return response.data;
+  }
+
+  // 17) Reply to an existing conversation (text, location, or time slot message)
+  async replyToConversation(
+    conversationId: string,
+    senderId: string,
+    text: string,
+    subject?: string
+  ): Promise<ChatMessage> {
+    const response = await api.post("/api/chat/messages", {
+      conversationId,
+      sender_id: senderId,
+      text,
+      subject: subject || "Reply",
+      // receiver_id is required by the existing route but ignored when conversationId is present
+      receiver_id: "placeholder",
+    });
+    return response.data;
+  }
+
+  // 18) Approve a time slot (contractor only)
+  async approveTimeSlot(
+    contractorId: number,
+    startTime: string,
+    endTime: string,
+    chatId: string
+  ): Promise<{ success: boolean; availabilitySlot?: any; updatedChat?: any; error?: string }> {
+    const response = await api.post("/api/chat/timeslot/approve", {
+      contractorId,
+      startTime,
+      endTime,
+      chatId,
+    });
+    return response.data;
+  }
+
+  // 19) Get scheduled appointments for the current user
+  async getUserAppointments(): Promise<{ success: boolean; appointments: ScheduledAppointment[] }> {
+    const response = await api.get("/api/user/appointments");
+    return response.data;
+  }
+
   // Get current user session
   async getCurrentUser(): Promise<User | null> {
     try {
@@ -407,6 +524,28 @@ export const getMessages = async (): Promise<ChatMessage[]> => {
 
   return allMessages;
 };
+
+// Advanced helpers
+export const getContactsV2 = () => chatService.getContactsV2();
+export const getConversationsBetween = (contactId: string) =>
+  chatService.getConversationsBetween(contactId);
+export const getContractorByUserId = (userId: string) =>
+  chatService.getContractorByUserId(userId);
+export const getContractorAvailability = (contractorId: number) =>
+  chatService.getContractorAvailability(contractorId);
+export const replyToConversation = (
+  conversationId: string,
+  senderId: string,
+  text: string,
+  subject?: string
+) => chatService.replyToConversation(conversationId, senderId, text, subject);
+export const approveTimeSlot = (
+  contractorId: number,
+  startTime: string,
+  endTime: string,
+  chatId: string
+) => chatService.approveTimeSlot(contractorId, startTime, endTime, chatId);
+export const getUserAppointments = () => chatService.getUserAppointments();
 
 // Helper function to get contact by ID
 export const getContactById = async (
