@@ -13,6 +13,7 @@ import MessageInput from "./MessageInput";
 import TimeSlotMessage from "./TimeSlotMessage";
 import LocationMessage from "./LocationMessage";
 import SchedulePlanner from "./SchedulePlanner";
+import { chatService } from "../../../../api/chatapi";
 
 interface RightPanelProps {
   messages: any[];
@@ -188,14 +189,26 @@ export default function RightPanel({
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
-            setDisplayedMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === messageId
-                  ? { ...msg, deleted: true, text: "Message was deleted" }
-                  : msg
-              )
-            );
+          onPress: async () => {
+            try {
+              // Call backend to soft-delete the message
+              await chatService.deleteMessage(messageId);
+
+              // Update local state to reflect deletion
+              setDisplayedMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === messageId
+                    ? { ...msg, deleted: true, text: "Message was deleted" }
+                    : msg
+                )
+              );
+            } catch (error) {
+              console.error("[RightPanel] Failed to delete message:", error);
+              Alert.alert(
+                "Error",
+                "Failed to delete message. Please try again."
+              );
+            }
           },
         },
       ]
