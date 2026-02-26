@@ -8,18 +8,14 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
+import * as Location from "expo-location";
 import { useAuth } from "../../lib/auth-context";
 import FooterMenu from "../user/footerMenu";
 import ServiceCarousel from "../../components/home/ServiceCarousel";
 import ContractorGrid from "../../components/home/ContractorGrid";
 import SortingBar from "../../components/home/SortingBar";
 import { contractorsService } from "../../api/contractorsApi";
-import {
-  Contractor,
-  ServiceCategory,
-  SortOption,
-  SortDirection,
-} from "../../types/home";
+import { Contractor, ServiceCategory, SortOption, SortDirection } from "../../types/home";
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
@@ -38,6 +34,12 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>("rating");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [deviceCity, setDeviceCity] = useState<string>("");
+
+  // Resolve user's city: prefer profile city, otherwise device city from expo-location
+  const userLocation = useMemo(() => {
+    return user?.contractor?.city || deviceCity || "";
+  }, [user, deviceCity]);
 
   // Debounce search query
   useEffect(() => {
@@ -46,6 +48,51 @@ export default function Home() {
     }, 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Detect device location once and derive a city name
+  useEffect(() => {
+    const detectLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        console.log("[Home] Location permission status:", status);
+
+        if (status !== "granted") {
+          console.warn("[Home] Location permission not granted");
+          return;
+        }
+
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        console.log("[Home] Raw position from getCurrentPositionAsync:", position);
+
+        const places = await Location.reverseGeocodeAsync({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        console.log("[Home] reverseGeocodeAsync result:", places);
+
+        const [place] = places;
+
+        const city =
+          place?.city || place?.subregion || place?.region || place?.country || "";
+
+        if (city) {
+          console.log("[Home] Detected device city:", city);
+          setDeviceCity(city);
+        } else {
+          console.warn("[Home] Could not resolve city from reverse geocode result");
+        }
+      } catch (error) {
+        console.error("[Home] Failed to detect device location:", error);
+      }
+    };
+
+    // Only try to detect location if we don't already have a profile city
+    if (!user?.contractor?.city) {
+      detectLocation();
+    }
+  }, [user]);
 
   // Load categories on mount
   useEffect(() => {
@@ -66,19 +113,53 @@ export default function Home() {
       setIsLoading(true);
       setPage(0);
       setContractors([]);
-
+ 
       try {
-        if (debouncedQuery || selectedCategory) {
-          // Search mode
-          const searchProfession = selectedCategory ? [selectedCategory] : undefined;
+        if (debouncedQuery) {
+          // Text search mode - use /search endpoint with q (works today)
+          console.log(
+            `[Home] Text search q="${debouncedQuery}"${
+              userLocation ? ` in "${userLocation}"` : ""
+            }`
+          );
+
           const response = await contractorsService.searchContractors({
-            q: debouncedQuery || undefined,
-            profession: searchProfession?.join(","),
+            q: debouncedQuery,
+            location: userLocation || undefined,
             page: 0,
             limit: 16,
           });
+
           setContractors(response.contractors);
           setHasMore(response.hasMore);
+          console.log(
+            `[Home] Loaded ${response.contractors.length} contractors from text search (total: ${response.total})`
+          );
+        } else if (selectedCategory) {
+          // Category mode - use /search endpoint with profession filter
+          console.log(
+            `[Home] Location debug → profileCity="${user?.contractor?.city ?? "(none)"}", deviceCity="${
+              deviceCity || "(none)"
+            }", userLocation="${userLocation || "(none)"}"`
+          );
+          console.log(
+            `[Home] Category search profession="${selectedCategory}"${
+              userLocation ? ` in "${userLocation}"` : " (no location filter)"
+            }`
+          );
+
+          const response = await contractorsService.searchContractors({
+            profession: selectedCategory,
+            location: userLocation || undefined,
+            page: 0,
+            limit: 16,
+          });
+
+          setContractors(response.contractors);
+          setHasMore(response.hasMore);
+          console.log(
+            `[Home] Loaded ${response.contractors.length} contractors from category search (total: ${response.total})`
+          );
         } else {
           // Default list mode
           const response = await contractorsService.fetchContractors(0, 16, sortOption);
@@ -93,7 +174,7 @@ export default function Home() {
     };
 
     loadContractors();
-  }, [debouncedQuery, selectedCategory]);
+  }, [debouncedQuery, selectedCategory, userLocation, sortOption]);
 
   // Load more contractors
   const handleLoadMore = useCallback(async () => {
@@ -103,12 +184,21 @@ export default function Home() {
     const nextPage = page + 1;
 
     try {
-      if (debouncedQuery || selectedCategory) {
-        // Search mode
-        const searchProfession = selectedCategory ? [selectedCategory] : undefined;
+      if (debouncedQuery) {
+        // Text search pagination
         const response = await contractorsService.searchContractors({
-          q: debouncedQuery || undefined,
-          profession: searchProfession?.join(","),
+          q: debouncedQuery,
+          location: userLocation || undefined,
+          page: nextPage,
+          limit: 16,
+        });
+        setContractors((prev) => [...prev, ...response.contractors]);
+        setHasMore(response.hasMore);
+      } else if (selectedCategory) {
+        // Category pagination - /search with profession filter
+        const response = await contractorsService.searchContractors({
+          profession: selectedCategory,
+          location: userLocation || undefined,
           page: nextPage,
           limit: 16,
         });
@@ -130,7 +220,7 @@ export default function Home() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [page, hasMore, isLoadingMore, debouncedQuery, selectedCategory, sortOption]);
+  }, [page, hasMore, isLoadingMore, debouncedQuery, selectedCategory, sortOption, userLocation]);
 
   // Handle contractor press - navigate to detail
   const handleContractorPress = useCallback(

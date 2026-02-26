@@ -49,19 +49,39 @@ class ContractorsService {
     params: ContractorSearchParams
   ): Promise<ContractorSearchResponse> {
     try {
+      // Build params object, only including defined values
+      const queryParams: Record<string, string | number> = {
+        page: params.page || 0,
+        limit: params.limit || 16,
+      };
+      
+      // Only add optional params if they have values
+      if (params.q) queryParams.q = params.q;
+      if (params.location) queryParams.location = params.location;
+      if (params.region) queryParams.region = params.region;
+      if (params.profession) queryParams.profession = params.profession;
+      
+      console.log(`[API] Calling /api/mobile/contractors/search with params:`, queryParams);
+      console.log(
+        `[API] Location param in request: "${
+          (queryParams as any).location ?? "(none)"
+        }"`
+      );
+      
       const response = await api.get<ContractorSearchResponse>(
         `/api/mobile/contractors/search`,
         {
-          params: {
-            q: params.q || "",
-            location: params.location || "",
-            region: params.region || "",
-            profession: params.profession || "",
-            page: params.page || 0,
-            limit: params.limit || 16,
-          },
+          params: queryParams,
         }
       );
+      
+      console.log(`[API] Response: ${response.data.contractors.length} contractors, total: ${response.data.total}`);
+      
+      // Log first contractor's specializations/certifications if available for debugging
+      if (response.data.contractors.length > 0) {
+        const first = response.data.contractors[0];
+        console.log(`[API] Sample contractor: ${first.name}, specializations: [${first.specializations.join(", ")}], certifications: [${first.certifications.join(", ")}]`);
+      }
       return response.data;
     } catch (error: any) {
       console.error("Error searching contractors:", error);

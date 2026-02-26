@@ -438,7 +438,9 @@ export const getContractorsByLocationAndProfession = async (
   profession: string[]
 ): Promise<Contractor[]> => {
   try {
-    if (!contractorLocation || !profession.length) {
+    // Require at least one profession key; allow empty location so the
+    // backend can do a profession-only search (used by the home carousel).
+    if (!profession.length) {
       return [];
     }
 
