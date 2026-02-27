@@ -2,7 +2,7 @@
   "expo": {
     "scheme": "myapp",
     "name": "nativebnbsos",
-    "slug": "nativebnbsos",
+    "slug": "testhandy",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -35,7 +35,14 @@
     "extra": {
       "expo-router": {
         "appRoot": "app"
+      },
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "3f06e0f3-0ef7-4785-8ad9-07da64dc513a"
       }
-    }
+    },
+    "owner": "testhandy"
   }
 }
