@@ -10,6 +10,7 @@ import {
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { replyToConversation, sendMessage } from "../../../../api/chatapi";
 import { useAuth } from "../../../../lib/auth-context";
+import { encodeLocationMessage } from "../../../../utils/locationUtils";
 import LocationPickerModal from "./LocationPickerModal";
 import CalendarPickerModal from "./CalendarPickerModal";
 
@@ -44,7 +45,8 @@ export default function MessageInput({
   };
 
   const handleSendLocation = async (lat: number, lng: number) => {
-    const locationText = `📍 Location: https://www.google.com/maps?q=${lat},${lng}`;
+    // Encode using the same format as the Next.js app
+    const locationText = encodeLocationMessage(lat, lng);
     await sendContent(locationText, "Location shared");
     setShowLocationPicker(false);
   };

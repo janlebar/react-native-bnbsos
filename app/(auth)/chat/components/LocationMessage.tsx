@@ -7,36 +7,22 @@ import {
   StyleSheet,
 } from "react-native";
 import { FontAwesome5 } from "@expo/vector-icons";
+import { parseLocationMessage } from "../../../../utils/locationUtils";
+import LocationMessageMap from "../../../../components/chat/LocationMessageMap";
 
 interface LocationMessageProps {
   text: string; // The full message text: "📍 Location: https://www.google.com/maps?q=lat,lng"
 }
 
-function extractCoordinates(
-  text: string
-): { lat: number; lng: number; url: string } | null {
-  const match = text.match(
-    /Location: (https:\/\/www\.google\.com\/maps\?q=(-?\d+\.\d+),(-?\d+\.\d+))/
-  );
-  if (match) {
-    return {
-      url: match[1],
-      lat: parseFloat(match[2]),
-      lng: parseFloat(match[3]),
-    };
-  }
-  return null;
-}
-
 export default function LocationMessage({ text }: LocationMessageProps) {
-  const coords = extractCoordinates(text);
+  const locationData = parseLocationMessage(text);
 
-  if (!coords) {
+  if (!locationData) {
     return <Text style={styles.fallback}>{text}</Text>;
   }
 
   const openInMaps = () => {
-    Linking.openURL(coords.url);
+    Linking.openURL(locationData.url);
   };
 
   return (
@@ -48,13 +34,14 @@ export default function LocationMessage({ text }: LocationMessageProps) {
 
       {/* Coordinates display */}
       <Text style={styles.coords}>
-        {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+        {locationData.latitude.toFixed(5)}, {locationData.longitude.toFixed(5)}
       </Text>
 
-      {/* Open in Maps button */}
-      <TouchableOpacity onPress={openInMaps} style={styles.mapButton}>
-        <Text style={styles.mapButtonText}>Open in Google Maps</Text>
-      </TouchableOpacity>
+      {/* Inline map display */}
+      <LocationMessageMap
+        latitude={locationData.latitude}
+        longitude={locationData.longitude}
+      />
     </View>
   );
 }
@@ -83,18 +70,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#6b7280",
     fontFamily: "monospace",
-  },
-  mapButton: {
-    backgroundColor: "#2563eb",
-    borderRadius: 6,
-    paddingVertical: 6,
-    alignItems: "center",
-    marginTop: 4,
-  },
-  mapButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
+    marginBottom: 4,
   },
   fallback: {
     fontSize: 13,

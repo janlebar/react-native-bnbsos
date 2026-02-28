@@ -309,14 +309,30 @@ class ChatService {
   }
 
   // Delete a message - JWT token authentication via interceptors
-  async deleteMessage(messageId: string): Promise<void> {
+  // Returns { success: boolean; error?: string } format as per delete-chat.md
+  async deleteMessage(messageId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      await api.delete(`/api/chat/messages/${messageId}`);
+      const response = await api.delete(`/api/chat/messages/${messageId}`);
+      if (response.status === 200 || response.data?.success) {
+        return { success: true };
+      }
+      return { success: false, error: "Failed to delete message" };
     } catch (error: any) {
       console.error("Error deleting message:", error);
-      throw new Error(
-        error.response?.data?.error || "Failed to delete message"
-      );
+      // Parse error from server
+      if (error.response?.data?.error) {
+        return { success: false, error: error.response.data.error };
+      }
+      if (error.response?.status === 401) {
+        return { success: false, error: "Unauthorized" };
+      }
+      if (error.response?.status === 403) {
+        return { success: false, error: "Unauthorized" };
+      }
+      if (error.response?.status === 404) {
+        return { success: false, error: "Message not found" };
+      }
+      return { success: false, error: error.message || "Failed to delete message" };
     }
   }
 

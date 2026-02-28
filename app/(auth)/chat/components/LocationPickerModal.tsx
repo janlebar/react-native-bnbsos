@@ -5,12 +5,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   Modal,
-  ActivityIndicator,
   Alert,
   TextInput,
 } from "react-native";
-import * as Location from "expo-location";
-import { FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import LocationPickerMap from "../../../../components/chat/LocationPickerMap";
 
 interface LocationPickerModalProps {
   onClose: () => void;
@@ -24,41 +23,24 @@ export default function LocationPickerModal({
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
     null
   );
-  const [isLoading, setIsLoading] = useState(false);
   const [manualLat, setManualLat] = useState("");
   const [manualLng, setManualLng] = useState("");
 
-  const getCurrentLocation = async () => {
-    setIsLoading(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          "Permission Denied",
-          "Location permission is required to share your location."
-        );
-        return;
-      }
-
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-      setManualLat(loc.coords.latitude.toFixed(6));
-      setManualLng(loc.coords.longitude.toFixed(6));
-    } catch (err) {
-      Alert.alert("Error", "Failed to get current location.");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleLocationChange = (latitude: number, longitude: number) => {
+    setLocation({ lat: latitude, lng: longitude });
+    setManualLat(latitude.toFixed(6));
+    setManualLng(longitude.toFixed(6));
   };
 
   const handleManualEntry = () => {
     const lat = parseFloat(manualLat);
     const lng = parseFloat(manualLng);
     if (!isNaN(lat) && !isNaN(lng)) {
-      setLocation({ lat, lng });
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        setLocation({ lat, lng });
+      } else {
+        Alert.alert("Invalid Coordinates", "Latitude must be between -90 and 90, longitude between -180 and 180.");
+      }
     } else {
       Alert.alert("Invalid Coordinates", "Please enter valid latitude and longitude.");
     }
@@ -67,38 +49,43 @@ export default function LocationPickerModal({
   const handleSend = () => {
     if (location) {
       onSend(location.lat, location.lng);
+      // Reset for next open
+      setLocation(null);
+      setManualLat("");
+      setManualLng("");
     }
   };
 
+  const handleClose = () => {
+    setLocation(null);
+    setManualLat("");
+    setManualLng("");
+    onClose();
+  };
+
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>Share Location</Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={handleClose}>
               <Ionicons name="close" size={22} color="#6b7280" />
             </TouchableOpacity>
           </View>
 
-          {/* Get current location button */}
-          <TouchableOpacity
-            onPress={getCurrentLocation}
-            disabled={isLoading}
-            style={styles.gpsButton}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <FontAwesome5 name="location-arrow" size={16} color="#fff" />
-            )}
-            <Text style={styles.gpsButtonText}>
-              {isLoading ? "Getting location…" : "Use Current Location"}
-            </Text>
-          </TouchableOpacity>
+          {/* Instruction text */}
+          <Text style={styles.instruction}>
+            Tap the map or use "My Location" to select a point, then tap Send.
+          </Text>
 
-          {/* Manual entry */}
+          {/* Interactive map */}
+          <View style={styles.mapContainer}>
+            <LocationPickerMap onLocationChange={handleLocationChange} />
+          </View>
+
+          {/* Manual entry fallback */}
           <Text style={styles.orText}>— or enter coordinates manually —</Text>
           <View style={styles.coordRow}>
             <TextInput
@@ -120,23 +107,15 @@ export default function LocationPickerModal({
             <Text style={styles.setButtonText}>Set Location</Text>
           </TouchableOpacity>
 
-          {/* Preview */}
-          {location && (
-            <View style={styles.preview}>
-              <FontAwesome5 name="map-marker-alt" size={14} color="#2563eb" />
-              <Text style={styles.previewText}>
-                {location.lat.toFixed(5)}, {location.lng.toFixed(5)}
-              </Text>
-            </View>
-          )}
-
-          {/* Send */}
+          {/* Send Location button — disabled until a location is selected */}
           <TouchableOpacity
             onPress={handleSend}
             disabled={!location}
             style={[styles.sendButton, !location && styles.sendButtonDisabled]}
           >
-            <Text style={styles.sendButtonText}>Send Location</Text>
+            <Text style={styles.sendButtonText}>
+              {location ? "📍 Send Location" : "Select a location first"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -164,16 +143,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: { fontSize: 17, fontWeight: "700", color: "#111827" },
-  gpsButton: {
-    backgroundColor: "#2563eb",
-    borderRadius: 8,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+  instruction: {
+    fontSize: 13,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 8,
   },
-  gpsButtonText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  mapContainer: {
+    marginBottom: 12,
+  },
   orText: { textAlign: "center", color: "#9ca3af", fontSize: 12 },
   coordRow: { flexDirection: "row", gap: 8 },
   coordInput: {
@@ -192,15 +170,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   setButtonText: { color: "#2563eb", fontSize: 13, fontWeight: "600" },
-  preview: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#eff6ff",
-    padding: 8,
-    borderRadius: 6,
-  },
-  previewText: { fontSize: 12, color: "#1e40af", fontFamily: "monospace" },
   sendButton: {
     backgroundColor: "#2563eb",
     borderRadius: 8,

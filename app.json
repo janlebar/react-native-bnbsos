@@ -15,14 +15,22 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bnbsos.nativebnbsos"
+      "bundleIdentifier": "com.bnbsos.nativebnbsos",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app uses your location to share it in chat messages.",
+        "NSLocationAlwaysUsageDescription": "This app uses your location to share it in chat messages."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.bnbsos.nativebnbsos"
+      "package": "com.bnbsos.nativebnbsos",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"

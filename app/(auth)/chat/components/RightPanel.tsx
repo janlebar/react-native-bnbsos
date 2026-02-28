@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Dimensions,
   Alert,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import MessageInput from "./MessageInput";
@@ -14,6 +15,7 @@ import TimeSlotMessage from "./TimeSlotMessage";
 import LocationMessage from "./LocationMessage";
 import SchedulePlanner from "./SchedulePlanner";
 import { chatService } from "../../../../api/chatapi";
+import { isLocationMessage } from "../../../../utils/locationUtils";
 
 interface RightPanelProps {
   messages: any[];
@@ -166,10 +168,7 @@ export default function RightPanel({
     ) {
       return "timeslot";
     }
-    if (
-      typeof text === "string" &&
-      /Location: https:\/\/www\.google\.com\/maps\?q=/.test(text)
-    ) {
+    if (typeof text === "string" && isLocationMessage(text)) {
       return "location";
     }
     return "text";
@@ -180,39 +179,97 @@ export default function RightPanel({
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  const handleDeleteMessage = (messageId: string) => {
-    Alert.alert(
-      "Delete Message",
-      "Are you sure you want to delete this message?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              // Call backend to soft-delete the message
-              await chatService.deleteMessage(messageId);
+  const performDelete = async (messageId: string) => {
+    console.log("[RightPanel] performDelete called for:", messageId);
+    // Store original messages for rollback on failure
+    const originalMessages = displayedMessages;
 
-              // Update local state to reflect deletion
-              setDisplayedMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === messageId
-                    ? { ...msg, deleted: true, text: "Message was deleted" }
-                    : msg
-                )
-              );
-            } catch (error) {
-              console.error("[RightPanel] Failed to delete message:", error);
-              Alert.alert(
-                "Error",
-                "Failed to delete message. Please try again."
-              );
-            }
-          },
-        },
-      ]
+    // Optimistic update: mark as deleted immediately in local state
+    setDisplayedMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId
+          ? { ...msg, deleted: true, text: "Message was deleted" }
+          : msg
+      )
     );
+
+    try {
+      console.log("[RightPanel] Calling chatService.deleteMessage for:", messageId);
+      // Call backend to soft-delete the message
+      const result = await chatService.deleteMessage(messageId);
+      console.log("[RightPanel] Delete result:", JSON.stringify(result, null, 2));
+
+      if (!result.success) {
+        // Revert optimistic update on failure
+        console.log("[RightPanel] Delete failed, reverting optimistic update");
+        setDisplayedMessages(originalMessages);
+        Alert.alert(
+          "Could not delete",
+          result.error || "Failed to delete message. Please try again."
+        );
+      } else {
+        console.log("[RightPanel] Message deleted successfully");
+      }
+      // On success: nothing else to do — UI already updated optimistically
+    } catch (error: any) {
+      // Revert on network error
+      console.error("[RightPanel] Exception during delete:", error);
+      setDisplayedMessages(originalMessages);
+      Alert.alert(
+        "Network Error",
+        "Could not reach the server. Please check your connection and try again."
+      );
+    }
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    console.log("[RightPanel] handleDeleteMessage called for:", messageId);
+    console.log("[RightPanel] Platform:", Platform.OS);
+    
+    const showDeleteConfirmation = () => {
+      Alert.alert(
+        "Delete Message",
+        "This message will be deleted for everyone. This cannot be undone.",
+        [
+          { 
+            text: "Cancel", 
+            style: "cancel", 
+            onPress: () => console.log("[RightPanel] Alert: Delete cancelled") 
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => {
+              console.log("[RightPanel] Alert: Delete confirmed");
+              performDelete(messageId);
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    };
+    
+    // On web, try window.confirm first (more reliable), fallback to Alert.alert
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && typeof window.confirm === "function") {
+        const confirmed = window.confirm(
+          "Delete Message\n\nThis message will be deleted for everyone. This cannot be undone.\n\nAre you sure you want to delete this message?"
+        );
+        if (confirmed) {
+          console.log("[RightPanel] Web confirmation: Delete confirmed");
+          performDelete(messageId);
+        } else {
+          console.log("[RightPanel] Web confirmation: Delete cancelled");
+        }
+      } else {
+        // Fallback: use Alert.alert on web
+        console.log("[RightPanel] window.confirm not available, using Alert.alert");
+        showDeleteConfirmation();
+      }
+    } else {
+      // Native platforms use Alert.alert
+      showDeleteConfirmation();
+    }
   };
 
   if (!selectedConversationId) {
@@ -344,12 +401,21 @@ export default function RightPanel({
                     </Text>
                     {isCurrentUser && !isDeleted && (
                       <TouchableOpacity
-                        onPress={() => handleDeleteMessage(message.id)}
+                        onPress={(e) => {
+                          e?.stopPropagation?.();
+                          console.log("[RightPanel] Delete button pressed for message:", message.id);
+                          handleDeleteMessage(message.id);
+                        }}
+                        onPressIn={(e) => {
+                          e?.stopPropagation?.();
+                        }}
                         style={styles.deleteButton}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
                         <Ionicons
                           name="trash-outline"
-                          size={14}
+                          size={16}
                           color="#ef4444"
                         />
                       </TouchableOpacity>
@@ -535,7 +601,13 @@ const styles = StyleSheet.create({
     color: "#6b7280",
   },
   deleteButton: {
-    padding: 4,
+    padding: 8,
+    marginLeft: 8,
+    borderRadius: 4,
+    minWidth: 32,
+    minHeight: 32,
+    justifyContent: "center",
+    alignItems: "center",
   },
   iconButton: {
     padding: 6,
