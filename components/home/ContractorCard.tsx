@@ -6,11 +6,13 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
 } from "react-native";
 import { Contractor } from "../../types/home";
 
-const CARD_WIDTH = (Dimensions.get("window").width - 48) / 2; // 2-column grid with padding
+// Constants for grid layout
+const GRID_PADDING = 32; // 16px on each side
+const CARD_GAP = 8; // Gap between cards
 
 interface ContractorCardProps {
   contractor: Contractor;
@@ -43,6 +45,9 @@ export default function ContractorCard({
   onPress,
   onFavoritePress,
 }: ContractorCardProps) {
+  const { width: screenWidth } = useWindowDimensions();
+  const cardWidth = (screenWidth - GRID_PADDING - CARD_GAP) / 2;
+
   const hasPremiumBadge =
     contractor.premiumPlacement &&
     contractor.placementTier &&
@@ -54,6 +59,7 @@ export default function ContractorCard({
     <TouchableOpacity
       style={[
         styles.card,
+        { width: cardWidth },
         contractor.premiumPlacement && styles.premiumCard,
       ]}
       onPress={() => onPress(contractor.id)}
@@ -194,7 +200,6 @@ export default function ContractorCard({
 
 const styles = StyleSheet.create({
   card: {
-    width: CARD_WIDTH,
     backgroundColor: "#fff",
     borderRadius: 16,
     overflow: "hidden",
@@ -203,7 +208,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12,
     shadowRadius: 6,
     elevation: 4,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: "#f3f4f6",
   },
