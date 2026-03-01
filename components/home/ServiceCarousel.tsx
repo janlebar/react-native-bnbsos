@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   StyleSheet,
+  Dimensions,
 } from "react-native";
 import { SvgProps } from "react-native-svg";
 import { ServiceCategory } from "../../types/home";
@@ -44,6 +45,13 @@ const CATEGORY_ICONS: Record<string, React.FC<SvgProps>> = {
   tutoring: TutoringIcon,
 };
 
+// Calculate responsive item width to show 3-4 items at once
+const screenWidth = Dimensions.get("window").width;
+const CONTAINER_PADDING = 48; // 24px on each side
+const ITEM_SPACING = 8;
+const ITEMS_VISIBLE = 3.5;
+const ITEM_WIDTH = (screenWidth - CONTAINER_PADDING) / ITEMS_VISIBLE;
+
 interface ServiceCarouselProps {
   categories: ServiceCategory[];
   selectedCategory: string | null;
@@ -66,6 +74,11 @@ export default function ServiceCarousel({
       data={categories}
       keyExtractor={(item) => item.key}
       showsHorizontalScrollIndicator={false}
+      scrollEnabled={true}
+      nestedScrollEnabled={true}
+      bounces={true}
+      decelerationRate="fast"
+      style={styles.flatList}
       contentContainerStyle={styles.container}
       renderItem={({ item }) => {
         const isSelected = selectedCategory === item.key;
@@ -76,24 +89,26 @@ export default function ServiceCarousel({
             onPress={() => handlePress(item.key)}
             activeOpacity={0.7}
           >
-            {IconComponent ? (
-              <IconComponent
-                width={24}
-                height={24}
-                style={[
-                  styles.icon,
-                  isSelected && styles.iconSelected,
-                ]}
-              />
-            ) : (
-              <Text style={styles.iconFallback}>✨</Text>
-            )}
-            <Text
-              style={[styles.label, isSelected && styles.labelSelected]}
-              numberOfLines={2}
-            >
-              {item.name}
-            </Text>
+            <View style={styles.content}>
+              {IconComponent ? (
+                <IconComponent
+                  width={36}
+                  height={36}
+                  style={[
+                    styles.icon,
+                    isSelected && styles.iconSelected,
+                  ]}
+                />
+              ) : (
+                <Text style={styles.iconFallback}>✨</Text>
+              )}
+              <Text
+                style={[styles.label, isSelected && styles.labelSelected]}
+                numberOfLines={2}
+              >
+                {item.name}
+              </Text>
+            </View>
           </TouchableOpacity>
         );
       }}
@@ -102,20 +117,29 @@ export default function ServiceCarousel({
 }
 
 const styles = StyleSheet.create({
+  flatList: {
+    marginVertical: 0,
+    paddingVertical: 0,
+  },
   container: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
+    paddingHorizontal: 24,
+    paddingVertical: 0,
   },
   item: {
     alignItems: "center",
     justifyContent: "center",
-    width: 72,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+    width: ITEM_WIDTH,
+    height: 80,
+    paddingHorizontal: 8,
     borderRadius: 12,
     backgroundColor: "#f3f4f6",
-    marginRight: 8,
+    marginRight: ITEM_SPACING,
+  },
+  content: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 0,
+    marginVertical: 0,
   },
   itemSelected: {
     backgroundColor: "#dbeafe",
@@ -123,20 +147,25 @@ const styles = StyleSheet.create({
     borderColor: "#3b82f6",
   },
   icon: {
-    marginBottom: 4,
+    marginBottom: 2,
   },
   iconSelected: {
     opacity: 1,
   },
   iconFallback: {
-    fontSize: 24,
-    marginBottom: 4,
+    fontSize: 32,
+    marginBottom: 0,
   },
   label: {
-    fontSize: 10,
+    fontSize: 12,
     textAlign: "center",
     color: "#374151",
     fontWeight: "500",
+    lineHeight: 10,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   labelSelected: {
     color: "#1d4ed8",
