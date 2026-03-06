@@ -7,6 +7,11 @@ import { saveToken, saveRefreshToken, getToken, getRefreshToken, deleteTokens } 
 
 const API_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
 
+// Debug: Log env variable values
+console.log("🔍 Environment check:");
+console.log("  EXPO_PUBLIC_BASE_URL:", process.env.EXPO_PUBLIC_BASE_URL);
+console.log("  API_URL resolved to:", API_URL);
+
 // Create axios instance with default config for Better Auth
 const api = axios.create({
   baseURL: API_URL,
@@ -85,6 +90,8 @@ class AuthService {
    */
   async login(credentials: UserCredentials): Promise<AuthResponse> {
     try {
+      console.log("🔍 Login method - API_URL at runtime:", API_URL);
+      console.log("🔍 Login method - process.env.EXPO_PUBLIC_BASE_URL:", process.env.EXPO_PUBLIC_BASE_URL);
       console.log("🔐 Attempting login to:", `${API_URL}/api/mobile/auth/login`);
       console.log("📧 Email:", credentials.email);
       
