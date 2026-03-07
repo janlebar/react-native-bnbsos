@@ -2,11 +2,11 @@ import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   StyleSheet,
-  SafeAreaView,
   TextInput,
   Text,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useAuth } from "../../lib/auth-context";
