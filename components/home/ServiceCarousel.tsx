@@ -69,6 +69,7 @@ export default function ServiceCarousel({
   };
 
   return (
+    // 🔴 RED = FlatList outer wrapper
     <FlatList
       horizontal
       data={categories}
@@ -78,14 +79,16 @@ export default function ServiceCarousel({
       nestedScrollEnabled={true}
       bounces={true}
       decelerationRate="fast"
-      style={styles.flatList}
-      contentContainerStyle={styles.container}
+      style={[styles.flatList, { backgroundColor: "red" }]}
+      // 🟠 ORANGE = contentContainer (paddingHorizontal/paddingVertical applied here)
+      contentContainerStyle={[styles.container, { backgroundColor: "orange" }]}
       renderItem={({ item }) => {
         const isSelected = selectedCategory === item.key;
         const IconComponent = CATEGORY_ICONS[item.key];
         return (
+          // 🟡 YELLOW = each TouchableOpacity item
           <TouchableOpacity
-            style={[styles.item, isSelected && styles.itemSelected]}
+            style={[styles.item, isSelected && styles.itemSelected, { backgroundColor: "yellow" }]}
             onPress={() => handlePress(item.key)}
             activeOpacity={0.7}
           >
@@ -101,8 +104,9 @@ export default function ServiceCarousel({
             ) : (
               <Text style={styles.iconFallback}>✨</Text>
             )}
+            {/* 🟢 GREEN = label text */}
             <Text
-              style={[styles.label, isSelected && styles.labelSelected]}
+              style={[styles.label, isSelected && styles.labelSelected, { backgroundColor: "lightgreen" }]}
               numberOfLines={2}
             >
               {item.name}
@@ -116,8 +120,6 @@ export default function ServiceCarousel({
 
 const styles = StyleSheet.create({
   flatList: {
-    height: 80,
-    alignSelf: "flex-start",
     marginVertical: 0,
     paddingVertical: 0,
   },
@@ -131,7 +133,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
     width: ITEM_WIDTH,
     paddingTop: 6,
-    paddingBottom: 6,
+    paddingBottom: 1,
     paddingHorizontal: 8,
     borderRadius: 12,
     backgroundColor: "#f3f4f6",

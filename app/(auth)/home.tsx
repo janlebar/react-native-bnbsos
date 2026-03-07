@@ -238,8 +238,10 @@ export default function Home() {
   const showSortingBar = debouncedQuery || selectedCategory;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+    // 🔵 BLUE = SafeAreaView
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: "blue" }]}>
+      {/* 🟣 PURPLE = outer container View */}
+      <View style={[styles.container, { backgroundColor: "purple" }]}>
         {/* Search Input */}
         <View style={styles.searchContainer}>
           <TextInput
@@ -251,13 +253,15 @@ export default function Home() {
           />
         </View>
 
-        {/* Service Carousel */}
+        {/* 🩷 PINK = ServiceCarousel wrapper (conditional View) */}
         {categories.length > 0 && (
-          <ServiceCarousel
-            categories={categories}
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-          />
+          <View style={{ backgroundColor: "pink" }}>
+            <ServiceCarousel
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+            />
+          </View>
         )}
 
         {/* Sorting Bar (only when search is active) */}
