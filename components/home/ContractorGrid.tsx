@@ -133,7 +133,10 @@ export default function ContractorGrid({
         )}
         contentContainerStyle={[
           styles.listContent,
-          { paddingHorizontal: horizontalPadding },
+          { 
+            paddingHorizontal: horizontalPadding,
+            paddingTop: isTablet ? 12 : 8,
+          },
         ]}
         columnWrapperStyle={
           numColumns > 1
@@ -176,7 +179,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingTop: 0,
     paddingBottom: 20,
   },
   row: {
