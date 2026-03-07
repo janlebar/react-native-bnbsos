@@ -239,9 +239,9 @@ export default function Home() {
 
   return (
     // 🔵 BLUE = SafeAreaView
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: "blue" }]}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       {/* 🟣 PURPLE = outer container View */}
-      <View style={[styles.container, { backgroundColor: "purple" }]}>
+      <View style={[styles.container, { backgroundColor: "transparent" }]}>
         {/* Search Input */}
         <View style={styles.searchContainer}>
           <TextInput
@@ -255,7 +255,7 @@ export default function Home() {
 
         {/* 🩷 PINK = ServiceCarousel wrapper (conditional View) */}
         {categories.length > 0 && (
-          <View style={{ backgroundColor: "pink" }}>
+          <View style={{ backgroundColor: "transparent" }}>
             <ServiceCarousel
               categories={categories}
               selectedCategory={selectedCategory}

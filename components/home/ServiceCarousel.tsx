@@ -79,16 +79,16 @@ export default function ServiceCarousel({
       nestedScrollEnabled={true}
       bounces={true}
       decelerationRate="fast"
-      style={[styles.flatList, { backgroundColor: "red" }]}
+      style={[styles.flatList, { backgroundColor: "transparent" }]}
       // 🟠 ORANGE = contentContainer (paddingHorizontal/paddingVertical applied here)
-      contentContainerStyle={[styles.container, { backgroundColor: "orange" }]}
+      contentContainerStyle={[styles.container, { backgroundColor: "transparent" }]}
       renderItem={({ item }) => {
         const isSelected = selectedCategory === item.key;
         const IconComponent = CATEGORY_ICONS[item.key];
         return (
           // 🟡 YELLOW = each TouchableOpacity item
           <TouchableOpacity
-            style={[styles.item, isSelected && styles.itemSelected, { backgroundColor: "yellow" }]}
+            style={[styles.item, isSelected && styles.itemSelected, { backgroundColor: "transparent" }]}
             onPress={() => handlePress(item.key)}
             activeOpacity={0.7}
           >
@@ -106,7 +106,7 @@ export default function ServiceCarousel({
             )}
             {/* 🟢 GREEN = label text */}
             <Text
-              style={[styles.label, isSelected && styles.labelSelected, { backgroundColor: "lightgreen" }]}
+              style={[styles.label, isSelected && styles.labelSelected]}
               numberOfLines={2}
             >
               {item.name}
