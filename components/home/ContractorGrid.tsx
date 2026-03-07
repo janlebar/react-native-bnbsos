@@ -47,9 +47,50 @@ export default function ContractorGrid({
   // Responsive column calculation
   const isTablet = screenWidth >= 768;
   const isLargeTablet = screenWidth >= 1024;
-  const numColumns = isLargeTablet ? 4 : isTablet ? 3 : 2;
   const horizontalPadding = isTablet ? 24 : 16;
   const gap = isTablet ? 16 : 12;
+  
+  // Minimum card width threshold (adjust based on your design needs)
+  const MIN_CARD_WIDTH = 150;
+  
+  // Calculate optimal number of columns based on available width
+  const calculateNumColumns = () => {
+    if (isLargeTablet) {
+      // For large tablets, try 4 columns first
+      const cardWidth4 = (screenWidth - horizontalPadding * 2 - gap * 3) / 4;
+      if (cardWidth4 >= MIN_CARD_WIDTH) return 4;
+      
+      // Try 3 columns
+      const cardWidth3 = (screenWidth - horizontalPadding * 2 - gap * 2) / 3;
+      if (cardWidth3 >= MIN_CARD_WIDTH) return 3;
+      
+      // Try 2 columns
+      const cardWidth2 = (screenWidth - horizontalPadding * 2 - gap) / 2;
+      if (cardWidth2 >= MIN_CARD_WIDTH) return 2;
+      
+      return 1;
+    }
+    
+    if (isTablet) {
+      // For tablets, try 3 columns first
+      const cardWidth3 = (screenWidth - horizontalPadding * 2 - gap * 2) / 3;
+      if (cardWidth3 >= MIN_CARD_WIDTH) return 3;
+      
+      // Try 2 columns
+      const cardWidth2 = (screenWidth - horizontalPadding * 2 - gap) / 2;
+      if (cardWidth2 >= MIN_CARD_WIDTH) return 2;
+      
+      return 1;
+    }
+    
+    // For phones, try 2 columns first
+    const cardWidth2 = (screenWidth - horizontalPadding * 2 - gap) / 2;
+    if (cardWidth2 >= MIN_CARD_WIDTH) return 2;
+    
+    return 1;
+  };
+  
+  const numColumns = calculateNumColumns();
   
   // Apply premium placement
   const placedContractors = useMemo(() => {
