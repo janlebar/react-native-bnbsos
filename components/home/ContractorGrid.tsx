@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
 } from "react-native";
 import { Contractor, SortOption, SortDirection } from "../../types/home";
 import ContractorCard from "./ContractorCard";
@@ -41,17 +42,29 @@ export default function ContractorGrid({
   onContractorPress,
   onFavoritePress,
 }: ContractorGridProps) {
+  const { width: screenWidth } = useWindowDimensions();
+  
+  // Responsive column calculation
+  const isTablet = screenWidth >= 768;
+  const isLargeTablet = screenWidth >= 1024;
+  const numColumns = isLargeTablet ? 4 : isTablet ? 3 : 2;
+  const horizontalPadding = isTablet ? 24 : 16;
+  const gap = isTablet ? 16 : 12;
+  
   // Apply premium placement
   const placedContractors = useMemo(() => {
     return applyPremiumPlacement(contractors, searchProfession, searchCity);
   }, [contractors, searchProfession, searchCity]);
 
-  // Sort positions 9+ (non-premium row) by selected option
+  // Sort positions after premium row by selected option
+  // Premium row size adapts to number of columns
+  const premiumRowSize = numColumns * 2; // 2 rows of premium cards
+  
   const sortedContractors = useMemo(() => {
-    if (placedContractors.length <= 8) return placedContractors;
+    if (placedContractors.length <= premiumRowSize) return placedContractors;
 
-    const premiumRow = placedContractors.slice(0, 8);
-    const rest = placedContractors.slice(8);
+    const premiumRow = placedContractors.slice(0, premiumRowSize);
+    const rest = placedContractors.slice(premiumRowSize);
 
     const sortedRest = [...rest].sort((a, b) => {
       let comparison = 0;
@@ -84,7 +97,7 @@ export default function ContractorGrid({
     });
 
     return [...premiumRow, ...sortedRest];
-  }, [placedContractors, sortOption, sortDirection]);
+  }, [placedContractors, sortOption, sortDirection, premiumRowSize]);
 
   if (isLoading) {
     return (
@@ -105,20 +118,34 @@ export default function ContractorGrid({
   return (
     <View style={styles.container}>
       <FlatList
+        key={`grid-${numColumns}`}
         data={sortedContractors}
-        numColumns={2}
+        numColumns={numColumns}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item, index }) => (
           <ContractorCard
             contractor={item}
             isSignedIn={isSignedIn}
-            isPremiumRow={index < 8}
+            isPremiumRow={index < premiumRowSize}
             onPress={onContractorPress}
             onFavoritePress={onFavoritePress}
           />
         )}
-        contentContainerStyle={styles.listContent}
-        columnWrapperStyle={styles.row}
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingHorizontal: horizontalPadding },
+        ]}
+        columnWrapperStyle={
+          numColumns > 1
+            ? [
+                styles.row,
+                {
+                  gap,
+                  paddingBottom: gap / 2,
+                },
+              ]
+            : undefined
+        }
         onEndReached={() => {
           if (hasMore && !isLoadingMore) {
             onLoadMore();
@@ -149,7 +176,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingHorizontal: 16,
     paddingTop: 0,
     paddingBottom: 20,
   },
