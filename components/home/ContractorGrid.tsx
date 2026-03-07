@@ -117,7 +117,6 @@ export default function ContractorGrid({
             onFavoritePress={onFavoritePress}
           />
         )}
-        style={styles.flatList}
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={styles.row}
         onEndReached={() => {
@@ -148,17 +147,11 @@ export default function ContractorGrid({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    marginTop: 0,
-  },
-  flatList: {
-    marginTop: 0,
-    paddingTop: 0,
   },
   listContent: {
     paddingHorizontal: 16,
     paddingTop: 0,
     paddingBottom: 20,
-    marginTop: 0,
   },
   row: {
     justifyContent: "space-between",

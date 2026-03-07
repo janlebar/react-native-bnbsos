@@ -89,26 +89,24 @@ export default function ServiceCarousel({
             onPress={() => handlePress(item.key)}
             activeOpacity={0.7}
           >
-            <View style={styles.content}>
-              {IconComponent ? (
-                <IconComponent
-                  width={36}
-                  height={36}
-                  style={[
-                    styles.icon,
-                    isSelected && styles.iconSelected,
-                  ]}
-                />
-              ) : (
-                <Text style={styles.iconFallback}>✨</Text>
-              )}
-              <Text
-                style={[styles.label, isSelected && styles.labelSelected]}
-                numberOfLines={2}
-              >
-                {item.name}
-              </Text>
-            </View>
+            {IconComponent ? (
+              <IconComponent
+                width={36}
+                height={36}
+                style={[
+                  styles.icon,
+                  isSelected && styles.iconSelected,
+                ]}
+              />
+            ) : (
+              <Text style={styles.iconFallback}>✨</Text>
+            )}
+            <Text
+              style={[styles.label, isSelected && styles.labelSelected]}
+              numberOfLines={2}
+            >
+              {item.name}
+            </Text>
           </TouchableOpacity>
         );
       }}
@@ -118,6 +116,8 @@ export default function ServiceCarousel({
 
 const styles = StyleSheet.create({
   flatList: {
+    height: 80,
+    alignSelf: "flex-start",
     marginVertical: 0,
     paddingVertical: 0,
   },
@@ -126,20 +126,16 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   item: {
+    alignSelf: "flex-start",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     width: ITEM_WIDTH,
-    height: 80,
+    paddingTop: 6,
+    paddingBottom: 6,
     paddingHorizontal: 8,
     borderRadius: 12,
     backgroundColor: "#f3f4f6",
     marginRight: ITEM_SPACING,
-  },
-  content: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 0,
-    marginVertical: 0,
   },
   itemSelected: {
     backgroundColor: "#dbeafe",
@@ -161,11 +157,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#374151",
     fontWeight: "500",
-    lineHeight: 10,
+    lineHeight: 14,
     marginTop: 0,
     marginBottom: 0,
     paddingTop: 0,
     paddingBottom: 0,
+    includeFontPadding: false,
   },
   labelSelected: {
     color: "#1d4ed8",
