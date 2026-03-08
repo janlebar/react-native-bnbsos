@@ -10,7 +10,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import { useAuth } from "../../lib/auth-context";
-import FooterMenu from "../user/footerMenu";
+import FooterMenu, { FOOTER_HEIGHT } from "../user/footerMenu";
 import ServiceCarousel from "../../components/home/ServiceCarousel";
 import ContractorGrid from "../../components/home/ContractorGrid";
 import SortingBar from "../../components/home/SortingBar";
@@ -277,20 +277,22 @@ export default function Home() {
         )}
 
         {/* Contractor Grid */}
-        <ContractorGrid
-          contractors={contractors}
-          isSignedIn={isSignedIn}
-          isLoading={isLoading}
-          isLoadingMore={isLoadingMore}
-          hasMore={hasMore}
-          sortOption={sortOption}
-          sortDirection={sortDirection}
-          searchProfession={searchProfession}
-          onLoadMore={handleLoadMore}
-          onContractorPress={handleContractorPress}
-        />
+        <View style={styles.gridContainer}>
+          <ContractorGrid
+            contractors={contractors}
+            isSignedIn={isSignedIn}
+            isLoading={isLoading}
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore}
+            sortOption={sortOption}
+            sortDirection={sortDirection}
+            searchProfession={searchProfession}
+            onLoadMore={handleLoadMore}
+            onContractorPress={handleContractorPress}
+          />
+        </View>
 
-        {/* Footer Menu */}
+        {/* Footer Menu - Always at bottom */}
         <FooterMenu />
       </View>
     </SafeAreaView>
@@ -304,6 +306,10 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  gridContainer: {
+    flex: 1,
+    paddingBottom: FOOTER_HEIGHT,
   },
   searchContainer: {
     paddingHorizontal: 16,

@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import SettingsIcon from "../assets/icons/settings.svg";
 import ContractorSettingsIcon from "../assets/icons/contractor_settings.svg";
 import ChevronRightIcon from "../assets/icons/chevron_right.svg";
-import FooterMenu from "./user/footerMenu";
+import FooterMenu, { FOOTER_HEIGHT } from "./user/footerMenu";
 
 const links = [
   { href: "/server", title: "Server" },
@@ -29,7 +29,9 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: FOOTER_HEIGHT }]}
+      >
         {links.map((link) => (
           <TouchableOpacity
             key={link.href}
