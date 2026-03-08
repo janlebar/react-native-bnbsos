@@ -225,7 +225,7 @@ export default function Home() {
   // Handle contractor press - navigate to detail
   const handleContractorPress = useCallback(
     (id: number) => {
-      router.push(`/contractors/${id}`);
+      router.push(`/(auth)/contractors/${id}`);
     },
     [router]
   );

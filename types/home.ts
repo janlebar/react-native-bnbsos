@@ -24,7 +24,7 @@ export interface Contractor {
   contractorLatitude?: number | null;
   contractorLongitude?: number | null;
   premiumPlacement?: boolean;
-  placementTier?: "CITY_FIRST" | "PROFESSION_FIRST" | "TOP_FIVE";
+  placementTier?: "VERIFIED" | "CITY_FIRST" | "PROFESSION_FIRST" | "TOP_FIVE";
   placementExpiresAt?: string | null;
   selectedPosition?: number | null;
   user?: {
@@ -37,13 +37,13 @@ export interface ContractorDetail extends Contractor {
 }
 
 export interface Review {
-  id: string;
+  id: number;
   comment: string;
   rating: number;
   createdAt: string;
   updatedAt: string;
   user: {
-    name: string;
+    name: string | null;
     image?: string | null;
   };
 }

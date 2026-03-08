@@ -1,5 +1,5 @@
 // app/(auth)/contractors/[id].tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,32 +11,49 @@ import {
   SafeAreaView,
   FlatList,
   Dimensions,
+  Linking,
+  Alert,
+  RefreshControl,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { contractorsService } from "../../../api/contractorsApi";
-import { ContractorDetail } from "../../../types/home";
+import { ContractorDetail, Review } from "../../../types/home";
 import { useAuth } from "../../../lib/auth-context";
 
 const { width } = Dimensions.get("window");
 
 interface ReviewCardProps {
-  comment: string;
-  rating: number;
-  createdAt: string;
-  userName: string;
+  review: Review;
 }
 
-function ReviewCard({ comment, rating, createdAt, userName }: ReviewCardProps) {
+function ReviewCard({ review }: ReviewCardProps) {
+  const userName = review.user.name || "Anonymous";
+  const userInitial = userName.charAt(0).toUpperCase();
+
   return (
     <View style={styles.reviewCard}>
       <View style={styles.reviewHeader}>
-        <Text style={styles.reviewUserName}>{userName}</Text>
-        <Text style={styles.reviewRating}>⭐ {rating}/10</Text>
+        {review.user.image ? (
+          <Image
+            source={{ uri: review.user.image }}
+            style={styles.reviewAvatar}
+          />
+        ) : (
+          <View style={styles.reviewAvatarFallback}>
+            <Text style={styles.reviewAvatarText}>{userInitial}</Text>
+          </View>
+        )}
+        <View style={styles.reviewUserInfo}>
+          <Text style={styles.reviewUserName}>{userName}</Text>
+          <Text style={styles.reviewDate}>
+            {new Date(review.createdAt).toLocaleDateString()}
+          </Text>
+        </View>
+        <View style={styles.reviewRating}>
+          <Text style={styles.reviewRatingText}>⭐ {review.rating}/10</Text>
+        </View>
       </View>
-      <Text style={styles.reviewComment}>{comment}</Text>
-      <Text style={styles.reviewDate}>
-        {new Date(createdAt).toLocaleDateString()}
-      </Text>
+      <Text style={styles.reviewComment}>{review.comment}</Text>
     </View>
   );
 }
@@ -49,9 +66,10 @@ export default function ContractorDetailScreen() {
 
   const [contractor, setContractor] = useState<ContractorDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadContractor = useCallback(async () => {
     if (!id) {
       setError("Invalid contractor ID");
       setIsLoading(false);
@@ -59,22 +77,66 @@ export default function ContractorDetailScreen() {
     }
 
     const contractorId = parseInt(id, 10);
-    if (isNaN(contractorId)) {
-      setError("Invalid contractor ID");
+    if (isNaN(contractorId) || contractorId <= 0) {
+      setError(`Invalid contractor ID: ${id}`);
       setIsLoading(false);
       return;
     }
 
-    contractorsService
-      .fetchContractorById(contractorId)
-      .then(setContractor)
-      .catch(() => setError("Contractor not found"))
-      .finally(() => setIsLoading(false));
+    console.log(`[ContractorDetail] Loading contractor with ID: ${contractorId}`);
+
+    try {
+      setError(null);
+      const data = await contractorsService.fetchContractorById(contractorId);
+      console.log(`[ContractorDetail] Successfully loaded contractor: ${data.name}`);
+      setContractor(data);
+    } catch (err: any) {
+      console.error("[ContractorDetail] Error loading contractor:", err);
+      
+      // Extract more detailed error message
+      const errorMessage = err.message || "Failed to load contractor. Please try again.";
+      setError(errorMessage);
+      
+      // Log more details for debugging
+      if (err.response) {
+        console.error("[ContractorDetail] API Error Response:", {
+          status: err.response.status,
+          statusText: err.response.statusText,
+          data: err.response.data,
+          url: err.config?.url,
+        });
+      } else if (err.request) {
+        console.error("[ContractorDetail] No response received:", err.request);
+      }
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    loadContractor();
+  }, [loadContractor]);
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadContractor();
+  }, [loadContractor]);
 
   const handleSendMessage = () => {
     if (!isSignedIn) {
-      router.push("/login");
+      Alert.alert(
+        "Sign In Required",
+        "Please sign in to send a message to this contractor.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Sign In",
+            onPress: () => router.push("/login"),
+          },
+        ]
+      );
       return;
     }
     if (!contractor) return;
@@ -88,10 +150,44 @@ export default function ContractorDetailScreen() {
     });
   };
 
+  const handleEmailPress = async (email: string) => {
+    const url = `mailto:${email}`;
+    const canOpen = await Linking.canOpenURL(url);
+    if (canOpen) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert("Error", "Cannot open email client");
+    }
+  };
+
+  const handleAddReview = () => {
+    if (!isSignedIn) {
+      Alert.alert(
+        "Sign In Required",
+        "Please sign in to add a review.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Sign In",
+            onPress: () => router.push("/login"),
+          },
+        ]
+      );
+      return;
+    }
+    // Navigate to add review screen (if implemented)
+    Alert.alert(
+      "Coming Soon",
+      "The review feature will be available soon.",
+      [{ text: "OK" }]
+    );
+  };
+
   if (isLoading) {
     return (
       <SafeAreaView style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#3b82f6" />
+        <Text style={styles.loadingText}>Loading contractor...</Text>
       </SafeAreaView>
     );
   }
@@ -99,8 +195,28 @@ export default function ContractorDetailScreen() {
   if (error || !contractor) {
     return (
       <SafeAreaView style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error || "Contractor not found"}</Text>
-        <TouchableOpacity onPress={() => router.back()}>
+        <Text style={styles.errorText}>
+          {error || "Contractor not found"}
+        </Text>
+        {error && error.includes("500") && (
+          <Text style={styles.errorSubtext}>
+            This appears to be a server error. Please try again in a moment.
+          </Text>
+        )}
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => {
+            setIsLoading(true);
+            setError(null);
+            loadContractor();
+          }}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.backButtonError}
+          onPress={() => router.back()}
+        >
           <Text style={styles.backLink}>Go Back</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -109,7 +225,12 @@ export default function ContractorDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+        }
+      >
         {/* Header / Hero */}
         <View style={styles.hero}>
           {contractor.backgroundImageUrl ? (
@@ -152,7 +273,11 @@ export default function ContractorDetailScreen() {
             </Text>
             {contractor.premiumPlacement && (
               <View style={styles.heroBadge}>
-                <Text style={styles.heroBadgeText}>✓ Verified</Text>
+                <Text style={styles.heroBadgeText}>
+                  {contractor.placementTier === "VERIFIED"
+                    ? "✓ Verified"
+                    : "👑 Premium"}
+                </Text>
               </View>
             )}
           </View>
@@ -178,7 +303,10 @@ export default function ContractorDetailScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: "#16a34a", fontSize: 11 }]} numberOfLines={1}>
+            <Text
+              style={[styles.statValue, styles.availabilityText]}
+              numberOfLines={1}
+            >
               {contractor.availability || "—"}
             </Text>
             <Text style={styles.statLabel}>Availability</Text>
@@ -215,7 +343,13 @@ export default function ContractorDetailScreen() {
           {isSignedIn ? (
             <>
               {contractor.user?.email && (
-                <Text style={styles.contactItem}>✉ {contractor.user.email}</Text>
+                <TouchableOpacity
+                  onPress={() => handleEmailPress(contractor.user!.email!)}
+                >
+                  <Text style={styles.contactItem}>
+                    ✉ {contractor.user.email}
+                  </Text>
+                </TouchableOpacity>
               )}
               {contractor.phone && (
                 <Text style={styles.contactItem}>📞 {contractor.phone}</Text>
@@ -243,9 +377,19 @@ export default function ContractorDetailScreen() {
 
         {/* Reviews */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            Reviews ({contractor.reviews?.length || 0})
-          </Text>
+          <View style={styles.reviewsHeader}>
+            <Text style={styles.sectionTitle}>
+              Reviews ({contractor.reviews?.length || 0})
+            </Text>
+            {isSignedIn && (
+              <TouchableOpacity
+                style={styles.addReviewButton}
+                onPress={handleAddReview}
+              >
+                <Text style={styles.addReviewButtonText}>Add Review</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           {!contractor.reviews || contractor.reviews.length === 0 ? (
             <Text style={styles.noData}>No reviews yet.</Text>
           ) : (
@@ -253,16 +397,9 @@ export default function ContractorDetailScreen() {
               horizontal
               data={contractor.reviews}
               keyExtractor={(item) => String(item.id)}
-              showsHorizontalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <ReviewCard
-                  comment={item.comment}
-                  rating={item.rating}
-                  createdAt={item.createdAt}
-                  userName={item.user.name}
-                />
-              )}
-              contentContainerStyle={{ gap: 12, paddingRight: 16 }}
+              showsHorizontalScrollIndicator={true}
+              renderItem={({ item }) => <ReviewCard review={item} />}
+              contentContainerStyle={styles.reviewsList}
             />
           )}
         </View>
@@ -276,7 +413,9 @@ export default function ContractorDetailScreen() {
           style={styles.sendMessageButton}
           onPress={handleSendMessage}
         >
-          <Text style={styles.sendMessageText}>Send Message</Text>
+          <Text style={styles.sendMessageText}>
+            💬 Send a message to {contractor.name}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -293,10 +432,41 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#6b7280",
+  },
   errorText: {
     fontSize: 16,
-    color: "#ef4444",
+    color: "#dc2626",
+    marginBottom: 8,
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  errorSubtext: {
+    fontSize: 13,
+    color: "#6b7280",
     marginBottom: 16,
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    backgroundColor: "#3b82f6",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: 12,
+    minWidth: 100,
+    alignItems: "center",
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  backButtonError: {
+    marginTop: 8,
   },
   backLink: {
     fontSize: 14,
@@ -324,111 +494,116 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: "absolute",
-    top: 50,
+    top: 16,
     left: 16,
-    backgroundColor: "rgba(255,255,255,0.9)",
+    backgroundColor: "rgba(0,0,0,0.4)",
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
     zIndex: 10,
   },
   backButtonText: {
-    color: "#1f2937",
+    color: "#fff",
     fontSize: 14,
     fontWeight: "600",
   },
   heroAvatarContainer: {
     position: "absolute",
-    bottom: 60,
+    top: 60,
     alignSelf: "center",
+    left: "50%",
+    marginLeft: -40,
   },
   heroAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 4,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
     borderColor: "#fff",
   },
   heroAvatarFallback: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: "#6366f1",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 4,
+    borderWidth: 3,
     borderColor: "#fff",
   },
   heroAvatarFallbackText: {
     color: "#fff",
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: "700",
   },
   heroNameContainer: {
-    position: "absolute",
-    bottom: 16,
-    left: 16,
-    right: 16,
     alignItems: "center",
+    paddingBottom: 20,
+    paddingHorizontal: 24,
+    marginTop: 48,
   },
   heroName: {
     color: "#fff",
     fontSize: 24,
     fontWeight: "700",
-    textAlign: "center",
     textShadowColor: "rgba(0,0,0,0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 3,
   },
   heroSpecializations: {
-    color: "rgba(255,255,255,0.9)",
+    color: "rgba(255,255,255,0.85)",
     fontSize: 14,
-    textAlign: "center",
     marginTop: 4,
+    textAlign: "center",
   },
   heroBadge: {
     marginTop: 8,
     backgroundColor: "#dbeafe",
     borderRadius: 20,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
   heroBadgeText: {
     color: "#1d4ed8",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
   },
   statsRow: {
     flexDirection: "row",
     backgroundColor: "#fff",
     paddingVertical: 16,
+    paddingHorizontal: 8,
+    justifyContent: "space-around",
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
+    borderBottomColor: "#f3f4f6",
   },
   statItem: {
-    flex: 1,
     alignItems: "center",
+    flex: 1,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
     color: "#1f2937",
-    marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
-    color: "#6b7280",
+    fontSize: 10,
+    color: "#9ca3af",
+    marginTop: 2,
   },
   statDivider: {
     width: 1,
     backgroundColor: "#e5e7eb",
   },
+  availabilityText: {
+    color: "#16a34a",
+    fontSize: 11,
+  },
   section: {
     backgroundColor: "#fff",
-    padding: 16,
     marginTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#e5e7eb",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   sectionTitle: {
     fontSize: 18,
@@ -467,6 +642,27 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginBottom: 8,
   },
+  reviewsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  addReviewButton: {
+    backgroundColor: "#2563eb",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  addReviewButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  reviewsList: {
+    gap: 12,
+    paddingRight: 16,
+  },
   signInPrompt: {
     fontSize: 14,
     color: "#3b82f6",
@@ -480,35 +676,61 @@ const styles = StyleSheet.create({
     width: width * 0.75,
     backgroundColor: "#f9fafb",
     borderRadius: 12,
-    padding: 12,
-    marginRight: 12,
+    padding: 16,
     borderWidth: 1,
     borderColor: "#e5e7eb",
+    marginRight: 12,
   },
   reviewHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 12,
+  },
+  reviewAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  reviewAvatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#6366f1",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  reviewAvatarText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  reviewUserInfo: {
+    flex: 1,
   },
   reviewUserName: {
     fontSize: 14,
     fontWeight: "600",
     color: "#1f2937",
   },
+  reviewDate: {
+    fontSize: 11,
+    color: "#9ca3af",
+    marginTop: 2,
+  },
   reviewRating: {
+    marginLeft: "auto",
+  },
+  reviewRatingText: {
     fontSize: 12,
-    color: "#6b7280",
+    fontWeight: "600",
+    color: "#f59e0b",
   },
   reviewComment: {
     fontSize: 13,
     color: "#374151",
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  reviewDate: {
-    fontSize: 11,
-    color: "#9ca3af",
+    lineHeight: 20,
   },
   stickyButtonContainer: {
     position: "absolute",
@@ -518,16 +740,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     paddingHorizontal: 16,
     paddingVertical: 12,
+    paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: "#e5e7eb",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 5,
+    elevation: 8,
   },
   sendMessageButton: {
-    backgroundColor: "#3b82f6",
+    backgroundColor: "#2563eb",
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
@@ -535,6 +758,6 @@ const styles = StyleSheet.create({
   sendMessageText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });

@@ -97,16 +97,57 @@ class ContractorsService {
    */
   async fetchContractorById(id: number): Promise<ContractorDetail> {
     try {
+      console.log(`[API] Fetching contractor by ID: ${id}`);
+      console.log(`[API] Request URL: /api/mobile/contractors/${id}`);
+      
       const response = await api.get<ContractorDetail>(
         `/api/mobile/contractors/${id}`
       );
+      
+      console.log(`[API] Successfully fetched contractor: ${response.data?.name || 'Unknown'}`);
       return response.data;
     } catch (error: any) {
-      console.error("Error fetching contractor:", error);
-      if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
+      console.error("[API] Error fetching contractor:", error);
+      
+      // Log detailed error information
+      if (error.response) {
+        const status = error.response.status;
+        const errorData = error.response.data;
+        const headers = error.response.headers;
+        
+        console.error("[API] Error Response Details:", {
+          status,
+          statusText: error.response.statusText,
+          data: errorData,
+          headers: {
+            'content-type': headers['content-type'],
+            'x-request-id': headers['x-request-id'],
+          },
+        });
+        
+        // Provide more detailed error messages
+        if (status === 404) {
+          throw new Error(`Contractor with ID ${id} not found`);
+        } else if (status === 400) {
+          throw new Error(errorData?.error || `Invalid contractor ID: ${id}`);
+        } else if (status === 500) {
+          // Extract more details from the error response
+          const serverError = errorData?.error || errorData?.message || "Internal server error";
+          const errorMessage = `Server error (${status}): ${serverError}. Please try again later.`;
+          console.error("[API] Server error details:", errorData);
+          throw new Error(errorMessage);
+        } else {
+          throw new Error(errorData?.error || `Error ${status}: Failed to fetch contractor`);
+        }
+      } else if (error.request) {
+        // Request was made but no response received
+        console.error("[API] No response received:", error.request);
+        throw new Error("No response from server. Please check your connection.");
+      } else {
+        // Something else happened
+        console.error("[API] Request setup error:", error.message);
+        throw new Error(error.message || "Failed to fetch contractor. Please check your connection.");
       }
-      throw new Error("Failed to fetch contractor");
     }
   }
 
