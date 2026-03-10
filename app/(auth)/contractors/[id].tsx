@@ -139,13 +139,18 @@ export default function ContractorDetailScreen() {
       );
       return;
     }
+
     if (!contractor) return;
-    // Navigate to chat screen with contractor pre-filled as receiver
+
+    // Navigate to chat screen with contractor pre-filled as receiver.
+    // Chat page will use these params to either create a new conversation
+    // or jump into an existing one for this contractor.
     router.push({
       pathname: "/chat",
       params: {
-        receiverId: contractor.uid,
+        receiverId: contractor.uid, // contractor user id
         receiverName: contractor.name,
+        contractorId: contractor.id?.toString(),
       },
     });
   };

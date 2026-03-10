@@ -19,6 +19,9 @@ interface ChatLayoutProps {
   selectedContactId?: string | null;
   selectedConversationId?: string | null;
   conversation?: any;
+  initialReceiverId?: string;
+  initialReceiverName?: string | null;
+  initialContractorId?: number;
 }
 
 type PanelType = "contacts" | "messages";
@@ -31,6 +34,9 @@ export default function ChatLayout({
   selectedContactId,
   selectedConversationId,
   conversation,
+  initialReceiverId,
+  initialReceiverName,
+  initialContractorId,
 }: ChatLayoutProps) {
   const router = useRouter();
   const [activePanel, setActivePanel] = useState<PanelType>("contacts");
@@ -38,11 +44,15 @@ export default function ChatLayout({
   // Auto-navigate to appropriate panel based on selection
   useEffect(() => {
     if (selectedConversationId) {
+      // Existing conversation selected → show messages
+      setActivePanel("messages");
+    } else if (initialReceiverId) {
+      // No conversation yet, but we have an initial receiver
       setActivePanel("messages");
     } else {
       setActivePanel("contacts");
     }
-  }, [selectedConversationId]);
+  }, [selectedConversationId, initialReceiverId]);
 
   const handleSelectContact = (contactId: string) => {
     // Stay on contacts panel when selecting a contact
@@ -106,17 +116,21 @@ export default function ChatLayout({
           />
         )}
 
-        {activePanel === "messages" && selectedConversationId && (
-          <RightPanel
-            messages={conversation?.Chat || []}
-            currentUserId={currentUserId}
-            currentUserName={currentUserName}
-            selectedConversationId={selectedConversationId}
-            selectedContactId={selectedContactId || null}
-            conversation={conversation}
-            onBack={handleBack}
-          />
-        )}
+        {activePanel === "messages" &&
+          (selectedConversationId || initialReceiverId) && (
+            <RightPanel
+              messages={conversation?.Chat || []}
+              currentUserId={currentUserId}
+              currentUserName={currentUserName}
+              selectedConversationId={selectedConversationId || null}
+              selectedContactId={selectedContactId || null}
+              conversation={conversation}
+              onBack={handleBack}
+              initialReceiverId={initialReceiverId}
+              initialReceiverName={initialReceiverName}
+              initialContractorId={initialContractorId}
+            />
+          )}
       </View>
     </View>
   );

@@ -26,6 +26,9 @@ interface RightPanelProps {
   conversation?: any;
   onSendMessage?: (text: string) => void;
   onBack?: () => void;
+  initialReceiverId?: string;
+  initialReceiverName?: string | null;
+  initialContractorId?: number;
 }
 
 const { width } = Dimensions.get("window");
@@ -39,6 +42,9 @@ export default function RightPanel({
   conversation,
   onSendMessage,
   onBack,
+  initialReceiverId,
+  initialReceiverName,
+  initialContractorId,
 }: RightPanelProps) {
   const [displayedMessages, setDisplayedMessages] = useState(messages);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -121,32 +127,48 @@ export default function RightPanel({
   };
 
   const getContactInfo = () => {
-    if (!conversation)
-      return { name: "Contact", receiverId: selectedContactId };
+    // If we already have a conversation, derive contact info from it
+    if (conversation) {
+      // Use enhanced receiver info if available
+      if (conversation.receiver) {
+        return {
+          name: conversation.receiver.name,
+          receiverId: conversation.receiver.id,
+          type: conversation.receiver.type,
+        };
+      }
 
-    // Use enhanced receiver info if available
-    if (conversation.receiver) {
-      return {
-        name: conversation.receiver.name,
-        receiverId: conversation.receiver.id,
-        type: conversation.receiver.type,
-      };
+      // Fallback to original logic
+      if (conversation.Contractor?.user?.id === currentUserId) {
+        return {
+          name: conversation.User?.name || "User",
+          receiverId: conversation.User?.id,
+          type: "user",
+        };
+      } else {
+        return {
+          name: conversation.Contractor?.user?.name || "Contractor",
+          receiverId: conversation.Contractor?.user?.id,
+          type: "contractor",
+        };
+      }
     }
 
-    // Fallback to original logic
-    if (conversation.Contractor?.user?.id === currentUserId) {
+    // New-chat mode: no conversation yet, but we have an initial receiver
+    if (initialReceiverId) {
       return {
-        name: conversation.User?.name || "User",
-        receiverId: conversation.User?.id,
-        type: "user",
-      };
-    } else {
-      return {
-        name: conversation.Contractor?.user?.name || "Contractor",
-        receiverId: conversation.Contractor?.user?.id,
+        name: initialReceiverName || "Contractor",
+        receiverId: initialReceiverId,
         type: "contractor",
       };
     }
+
+    // Fallback: generic contact (used when nothing else is known)
+    return {
+      name: "Contact",
+      receiverId: selectedContactId,
+      type: "user",
+    };
   };
 
   const contactInfo = getContactInfo();
@@ -158,7 +180,7 @@ export default function RightPanel({
     conversation.Contractor.user.id === currentUserId;
 
   const contractorIdForConversation: number | undefined =
-    conversation?.Contractor?.id;
+    conversation?.Contractor?.id ?? initialContractorId;
 
   const getMessageType = (text: string) => {
     if (
@@ -272,7 +294,9 @@ export default function RightPanel({
     }
   };
 
-  if (!selectedConversationId) {
+  // If there is no selected conversation and no initial receiver,
+  // show the \"select a conversation\" placeholder.
+  if (!selectedConversationId && !initialReceiverId) {
     return (
       <View style={styles.noConversationContainer}>
         <Text style={styles.noConversationText}>

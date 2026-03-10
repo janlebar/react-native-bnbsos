@@ -6,7 +6,7 @@ import {
   Text,
   ActivityIndicator,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import ChatLayout from "./components/ChatLayout";
 import ProtectedRoute from "../../../components/ProtectedRoute";
 import {
@@ -21,6 +21,7 @@ const isMobile = width < 768;
 
 export default function ChatPage() {
   const params = useLocalSearchParams();
+  const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const [contacts, setContacts] = useState<any[]>([]);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -31,12 +32,19 @@ export default function ChatPage() {
   const selectedContactId = params.contactId as string | undefined;
   const selectedConversationId = params.conversationId as string | undefined;
 
+  // Optional params when coming from contractor detail \"Send Message\" button
+  const initialReceiverId = params.receiverId as string | undefined;
+  const initialReceiverName = params.receiverName as string | undefined;
+  const contractorIdParam = params.contractorId as string | undefined;
+  const contractorId = contractorIdParam
+    ? parseInt(contractorIdParam, 10)
+    : undefined;
+
   // Use authenticated user data
   const currentUserId = user?.id || "currentUser";
   const currentUserName = user?.name || "You";
 
   useEffect(() => {
-    // Temporarily bypass auth loading check for testing
     loadData();
   }, []);
 
@@ -51,6 +59,32 @@ export default function ChatPage() {
       loadConversation(selectedConversationId);
     }
   }, [selectedConversationId]);
+
+  // Optional: if we arrived with a contractorId but no conversationId yet,
+  // try to find an existing conversation for this contractor and jump into it.
+  useEffect(() => {
+    if (!contractorId || selectedConversationId) return;
+    if (!conversations.length) return;
+
+    const existing = conversations.find(
+      (c: any) => c.contractorId === contractorId
+    );
+
+    if (!existing) return;
+
+    // Derive a contactId for this contractor; fall back to contractorId string.
+    const contactForContractor = contacts.find(
+      (c: any) =>
+        c.isContractor &&
+        (c.contractor?.id === contractorId ||
+          c.id === String(contractorId))
+    );
+
+    const contactId =
+      contactForContractor?.id ?? String(contractorId);
+
+    router.replace(`/chat/${contactId}/${existing.id}`);
+  }, [contractorId, selectedConversationId, conversations, contacts, router]);
 
   const loadData = async () => {
     try {
@@ -131,6 +165,9 @@ export default function ChatPage() {
         selectedContactId={selectedContactId || null}
         selectedConversationId={selectedConversationId || null}
         conversation={conversation}
+        initialReceiverId={initialReceiverId}
+        initialReceiverName={initialReceiverName}
+        initialContractorId={contractorId}
       />
     </View>
   );
