@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { loginApi } from "../api/authapi";
+import { LoginAs } from "../api/types";
 import { useAuth } from "../lib/auth-context";
 import OAuthButtons from "./OAuthButtons";
 
@@ -21,6 +22,9 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [loginAs, setLoginAs] = useState<LoginAs>(
+    isContractor ? "contractor" : "user"
+  );
   const router = useRouter();
   const { signIn } = useAuth();
 
@@ -34,17 +38,22 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
 
     try {
       console.log("Starting login with email:", email.trim());
-      
+      console.log("Login mode:", loginAs);
+
       const response = await loginApi({
         email: email.trim(),
         password,
-        isContractor,
+        // Keep legacy isContractor for now, but prefer explicit loginAs
+        isContractor: loginAs === "contractor" || isContractor,
+        loginAs,
       });
 
       console.log("Login response received:", {
         hasUser: !!response.user,
         hasToken: !!response.token,
         userId: response.user?.id,
+        loginAs: response.loginAs,
+        isContractor: response.user?.isContractor,
       });
 
       // Use user data from the response
@@ -56,10 +65,16 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
         
         // Use setTimeout to ensure React has re-rendered with new auth state
         setTimeout(() => {
-          // Navigate based on user type
-          if (response.user.isContractor || isContractor) {
-            console.log("Navigating to /contractors/contractors");
-            router.replace("/contractors/contractors");
+          const effectiveLoginAs = response.loginAs || loginAs;
+          const isBackendContractor = !!response.user?.isContractor;
+
+          // Navigate based on backend-confirmed contractor status and mode
+          if (
+            effectiveLoginAs === "contractor" &&
+            isBackendContractor
+          ) {
+            console.log("Navigating to /contractors (dashboard)");
+            router.replace("/contractors");
           } else {
             console.log("Navigating to /(auth)/home");
             router.replace("/(auth)/home");
@@ -70,7 +85,19 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
       }
     } catch (error: any) {
       console.error("Login error:", error);
-      Alert.alert("Login Failed", error.message || "Please try again");
+      if (error?.code === "NO_CONTRACTOR_PROFILE") {
+        Alert.alert(
+          "Contractor profile not found",
+          "No contractor profile found for this account. Please complete contractor onboarding."
+        );
+      } else if (error?.code === "CONTRACTOR_NOT_CONFIRMED") {
+        Alert.alert(
+          "Contractor profile not confirmed",
+          "Your contractor profile is not yet confirmed. Please complete onboarding or check your email."
+        );
+      } else {
+        Alert.alert("Login Failed", error.message || "Please try again");
+      }
     } finally {
       setIsPending(false);
     }
@@ -78,8 +105,13 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
 
   const handleOAuthSuccess = (userData: any) => {
     signIn(userData);
-    if (isContractor) {
-      router.replace("/contractors/contractors");
+    const isBackendContractor =
+      typeof userData?.isContractor === "boolean"
+        ? userData.isContractor
+        : !!userData?.contractor;
+
+    if (isBackendContractor) {
+      router.replace("/contractors");
     } else {
       router.replace("/(auth)/home");
     }
@@ -88,8 +120,46 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>
-        {isContractor ? "Contractor Login" : "User Login"}
+        {loginAs === "contractor" ? "Contractor Login" : "User Login"}
       </Text>
+
+      <View style={styles.toggleContainer}>
+        <TouchableOpacity
+          style={[
+            styles.toggleButton,
+            loginAs === "user" && styles.toggleButtonActive,
+          ]}
+          onPress={() => setLoginAs("user")}
+          disabled={isPending}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              loginAs === "user" && styles.toggleTextActive,
+            ]}
+          >
+            User
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.toggleButton,
+            loginAs === "contractor" && styles.toggleButtonActive,
+          ]}
+          onPress={() => setLoginAs("contractor")}
+          disabled={isPending}
+        >
+          <Text
+            style={[
+              styles.toggleText,
+              loginAs === "contractor" && styles.toggleTextActive,
+            ]}
+          >
+            Contractor
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.form}>
         <TextInput
@@ -168,6 +238,32 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 30,
     color: "#1f2937",
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+  },
+  toggleButtonActive: {
+    backgroundColor: "#111827",
+    borderColor: "#111827",
+  },
+  toggleText: {
+    color: "#111827",
+  },
+  toggleTextActive: {
+    color: "#ffffff",
+    fontWeight: "600",
   },
   form: {
     width: "100%",

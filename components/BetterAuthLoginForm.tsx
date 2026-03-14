@@ -43,7 +43,7 @@ export default function BetterAuthLoginForm({
 
         // Navigate based on user type
         if (isContractor) {
-          router.replace("/contractors/contractors");
+          router.replace("/contractors");
         } else {
           router.replace("/(auth)/home");
         }

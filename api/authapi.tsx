@@ -2,7 +2,13 @@
 // Better Auth Mobile Integration
 
 import axios, { AxiosResponse, AxiosError } from "axios";
-import { UserCredentials, LoginResponse, RegisterFormValues, User } from "./types";
+import {
+  UserCredentials,
+  LoginResponse,
+  RegisterFormValues,
+  User,
+  LoginAs,
+} from "./types";
 import { saveToken, saveRefreshToken, getToken, getRefreshToken, deleteTokens } from "../utils/secureStore";
 
 const API_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
@@ -88,18 +94,24 @@ class AuthService {
    * Login with email and password using Better Auth mobile endpoint
    * Handles Better Auth's proxied response format
    */
-  async login(credentials: UserCredentials): Promise<AuthResponse> {
+  async login(
+    credentials: UserCredentials
+  ): Promise<AuthResponse & { loginAs: LoginAs }> {
     try {
       console.log("🔍 Login method - API_URL at runtime:", API_URL);
       console.log("🔍 Login method - process.env.EXPO_PUBLIC_BASE_URL:", process.env.EXPO_PUBLIC_BASE_URL);
       console.log("🔐 Attempting login to:", `${API_URL}/api/mobile/auth/login`);
       console.log("📧 Email:", credentials.email);
+      console.log("👤 loginAs:", credentials.loginAs || "user");
       
       const response = await axios.post(
         `${API_URL}/api/mobile/auth/login`,
         {
           email: credentials.email,
           password: credentials.password,
+          // New mobile contract: tell backend whether we're logging in as user or contractor
+          // See `next-auth/Expo_integration/login/contractor_user_login.md`
+          loginAs: credentials.loginAs,
         }
       );
 
@@ -154,13 +166,21 @@ class AuthService {
 
       console.log("✅ Login successful!");
 
+      const effectiveLoginAs: LoginAs =
+        (data.loginAs as LoginAs | undefined) || "user";
+
       return {
         user: {
           ...data.user,
-          isContractor: credentials.isContractor || !!data.user.contractor,
+          // Prefer backend flags over requested mode for truth
+          isContractor:
+            typeof data.user.isContractor === "boolean"
+              ? data.user.isContractor
+              : !!data.user.contractor,
         },
         token,
         refreshToken: refreshToken || "",
+        loginAs: effectiveLoginAs,
       };
     } catch (error: any) {
       console.error("❌ Login error:", error);
@@ -176,10 +196,20 @@ class AuthService {
         console.error("⚙️ Error setting up request:", error.message);
       }
       
-      if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
+      const responseData: any = error.response?.data;
+      const backendMessage =
+        responseData?.error ||
+        (typeof responseData === "string" ? responseData : undefined);
+
+      const finalError: Error & { code?: string } = new Error(
+        backendMessage || error.message || "Login failed"
+      );
+
+      if (responseData?.code && typeof responseData.code === "string") {
+        finalError.code = responseData.code;
       }
-      throw new Error(error.message || "Login failed");
+
+      throw finalError;
     }
   }
 
@@ -374,6 +404,7 @@ export const loginApi = async (
       user: response.user,
       twoFactorRequired: false, // Better Auth 2FA is handled in response
       isContractor: response.user.isContractor,
+      loginAs: response.loginAs,
     };
   } catch (error: any) {
     throw error;

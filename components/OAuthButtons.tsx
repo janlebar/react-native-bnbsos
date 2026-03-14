@@ -42,7 +42,15 @@ export default function OAuthButtons({
         } else {
           // Fallback to default behavior
           Alert.alert("Success", `Welcome ${user.name}!`);
-          router.replace("/(auth)/home");
+          const isBackendContractor =
+            typeof user?.isContractor === "boolean"
+              ? user.isContractor
+              : !!user?.contractor;
+          if (isBackendContractor) {
+            router.replace("/contractors");
+          } else {
+            router.replace("/(auth)/home");
+          }
         }
       }
     } catch (error: any) {
