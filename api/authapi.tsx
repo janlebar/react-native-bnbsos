@@ -510,5 +510,34 @@ export const getCurrentUser = async (): Promise<User | null> => {
   }
 };
 
+/**
+ * Switch user role between 'user' and 'contractor'
+ */
+export interface SwitchRoleResponse {
+  success: boolean;
+  role?: 'user' | 'contractor';
+  message?: string;
+  error?: string;
+}
+
+export async function switchRoleApi(
+  role: 'user' | 'contractor'
+): Promise<SwitchRoleResponse> {
+  try {
+    const response = await api.post('/api/auth/switch-role', { role });
+    return response.data;
+  } catch (error: any) {
+    console.error('Role switch error:', error);
+    const errorMessage =
+      error.response?.data?.error ||
+      error.message ||
+      'Failed to switch role';
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+}
+
 // Export the auth service and api instance
 export { authService, api };

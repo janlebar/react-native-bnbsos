@@ -7,10 +7,12 @@ import {
   ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useAuth } from "../lib/auth-context";
 import SettingsIcon from "../assets/icons/settings.svg";
 import ContractorSettingsIcon from "../assets/icons/contractor_settings.svg";
 import ChevronRightIcon from "../assets/icons/chevron_right.svg";
 import FooterMenu, { FOOTER_HEIGHT } from "./user/footerMenu";
+import { RoleSwitchButton } from "../components/RoleSwitchButton";
 
 const links = [
   { href: "/server", title: "Server" },
@@ -22,6 +24,7 @@ const links = [
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { user } = useAuth();
 
   const handlePress = (href: string) => {
     router.push(href);
@@ -32,6 +35,19 @@ export default function ProfileScreen() {
       <ScrollView 
         contentContainerStyle={[styles.scrollContent, { paddingBottom: FOOTER_HEIGHT }]}
       >
+        {/* User Info and Role Switch Section */}
+        <View style={styles.userSection}>
+          <View style={styles.userInfo}>
+            <Text style={styles.userName}>{user?.name || "User"}</Text>
+            <Text style={styles.userEmail}>{user?.email}</Text>
+          </View>
+          <RoleSwitchButton />
+        </View>
+
+        {/* Divider */}
+        <View style={styles.divider} />
+
+        {/* Settings Links */}
         {links.map((link) => (
           <TouchableOpacity
             key={link.href}
@@ -68,6 +84,30 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
+  },
+  userSection: {
+    padding: 20,
+    backgroundColor: "#f9fafb",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  userInfo: {
+    marginBottom: 16,
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: 4,
+  },
+  userEmail: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#e5e7eb",
+    marginVertical: 8,
   },
   item: {
     flexDirection: "row",

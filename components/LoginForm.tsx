@@ -26,7 +26,7 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
     isContractor ? "contractor" : "user"
   );
   const router = useRouter();
-  const { signIn } = useAuth();
+  const { signIn, refreshSession } = useAuth();
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -63,12 +63,29 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
         
         console.log("User signed in, navigating...");
         
+        // If user is a contractor but contractor profile is missing, refresh session
+        // This handles cases where backend hasn't been updated yet
+        if (response.user.isContractor && response.user.contractorId && !response.user.contractor) {
+          console.log("Contractor detected but profile missing, refreshing session...");
+          try {
+            await refreshSession();
+            console.log("Session refreshed with contractor profile");
+          } catch (error) {
+            console.warn("Failed to refresh session, continuing anyway:", error);
+            // Continue - backend may not be updated yet, but we'll try navigation
+          }
+        }
+        
         // Use setTimeout to ensure React has re-rendered with new auth state
+        // After refreshSession, the auth context will have the updated user with contractor profile
+        // The ContractorRouteGuard will check the updated user from context
         setTimeout(() => {
           const effectiveLoginAs = response.loginAs || loginAs;
           const isBackendContractor = !!response.user?.isContractor;
 
           // Navigate based on backend-confirmed contractor status and mode
+          // Note: If contractor profile was missing, refreshSession updated the context
+          // The ContractorRouteGuard will verify access using the updated user from context
           if (
             effectiveLoginAs === "contractor" &&
             isBackendContractor
@@ -79,7 +96,7 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
             console.log("Navigating to /(auth)/home");
             router.replace("/(auth)/home");
           }
-        }, 100);
+        }, 200); // Increased timeout to allow refreshSession to complete and context to update
       } else {
         throw new Error("No user data in response");
       }

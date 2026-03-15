@@ -16,6 +16,7 @@ import ContractorGrid from "../../components/home/ContractorGrid";
 import SortingBar from "../../components/home/SortingBar";
 import { contractorsService } from "../../api/contractorsApi";
 import { Contractor, ServiceCategory, SortOption, SortDirection } from "../../types/home";
+import { RoleSwitchButton } from "../../components/RoleSwitchButton";
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
@@ -242,6 +243,14 @@ export default function Home() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       {/* 🟣 PURPLE = outer container View */}
       <View style={[styles.container, { backgroundColor: "transparent" }]}>
+        {/* Header with Role Switch */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerSpacer} />
+          <View style={styles.headerButton}>
+            <RoleSwitchButton variant="compact" />
+          </View>
+        </View>
+
         {/* Search Input */}
         <View style={styles.searchContainer}>
           <TextInput
@@ -306,6 +315,20 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  headerContainer: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  headerSpacer: {
+    flex: 1,
+  },
+  headerButton: {
+    alignItems: "flex-end",
   },
   gridContainer: {
     flex: 1,

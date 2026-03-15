@@ -3,8 +3,8 @@
 import React from "react";
 import { View, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { deleteToken } from "../../utils/secureStore";
 import { useRouter } from "expo-router";
+import { useAuth } from "../../lib/auth-context";
 import LogoutIcon from "../../assets/icons/logout.svg";
 import ProfileIcon from "../../assets/icons/profile.svg";
 import ChatBubble from "../../assets/icons/chat_bubble.svg";
@@ -14,9 +14,10 @@ export const FOOTER_HEIGHT = 68; // 12px padding top + 12px padding bottom + 44p
 
 export default function FooterMenu() {
   const router = useRouter();
+  const { signOut } = useAuth();
 
   const handleLogout = async () => {
-    await deleteToken();
+    await signOut();
     router.replace("/login");
   };
 
