@@ -9,7 +9,7 @@ import { switchRoleApi } from '../api/authapi';
 
 export function useRoleSwitch() {
   const [switching, setSwitching] = useState(false);
-  const { user, refreshSession } = useAuth();
+  const { user, updateUser, refreshSession } = useAuth();
   const router = useRouter();
 
   // Derive hasContractorProfile from contractor existence
@@ -51,8 +51,24 @@ export function useRoleSwitch() {
         console.log('🔄 Role Switch - Result:', result);
 
         if (result.success) {
-          // Refresh user data to get updated role
-          await refreshSession();
+          // ─── Optimistic local update ───────────────────────────────────
+          // The backend uses a cookie to track active role, but Expo/Axios
+          // does not forward cookies, so refreshSession() would return stale
+          // data. We update the user in context directly instead.
+          updateUser({ isContractor: newRole === 'contractor' });
+
+          // Kick off a background session refresh in case the backend has
+          // been updated to persist the role in a way mobile can read it.
+          // We intentionally do NOT await this so it cannot block navigation
+          // or overwrite the optimistic state before we navigate.
+          refreshSession().catch(() => {/* silent – best-effort */});
+
+          // Navigate first, then show the alert so the new screen is ready.
+          if (newRole === 'contractor') {
+            router.replace('/contractors');
+          } else {
+            router.replace('/(auth)/home');
+          }
 
           // Show success feedback
           Alert.alert(
@@ -60,13 +76,6 @@ export function useRoleSwitch() {
             `You are now in ${newRole} mode`,
             [{ text: 'OK' }]
           );
-
-          // Navigate to appropriate home screen
-          if (newRole === 'contractor') {
-            router.replace('/contractors');
-          } else {
-            router.replace('/(auth)/home');
-          }
         } else {
           // Handle specific error cases
           if (result.error?.includes('not confirmed') || result.error?.includes('confirmed')) {
@@ -96,7 +105,7 @@ export function useRoleSwitch() {
         setSwitching(false);
       }
     },
-    [user, hasContractorProfile, refreshSession, router]
+    [user, hasContractorProfile, updateUser, refreshSession, router]
   );
 
   return {

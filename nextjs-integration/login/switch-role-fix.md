@@ -1,6 +1,31 @@
-## Switch Role Fix – Next.js Backend
+## Switch Role Fix – Root Cause & Resolution
 
-### Problem
+### Status (Expo frontend – FIXED ✅)
+
+The Expo app was calling `refreshSession()` after `POST /api/auth/switch-role` returned
+`success: true`, expecting the session endpoint to reflect the new role. It didn't, because:
+
+> **Axios in React Native does not store or forward HTTP cookies.**
+>
+> `switch-role` sets a `session-role=contractor` cookie, but when the Expo app subsequently
+> calls `GET /api/auth/session` the cookie is never sent. The session endpoint therefore
+> returns the same pre-switch user object, with `isContractor: false`.
+
+**Fix applied in `lib/useRoleSwitch.ts` + `lib/auth-context.tsx`:**
+
+1. Added `updateUser(updates: Partial<User>)` to `AuthContext` — patches the in-memory user
+   and the `SecureStore` cache without a network round-trip.
+2. After `switchRoleApi` returns `success: true`, `useRoleSwitch` calls
+   `updateUser({ isContractor: newRole === 'contractor' })` **before** navigating.
+3. `refreshSession()` is still fired in the background (no `await`) so that if the backend
+   is later fixed to persist role in a DB field, the state stays in sync automatically.
+
+This makes the `/contractors` route pass `useContractorAccess` immediately after switching —
+no "Access Denied" error.
+
+---
+
+### Problem (original report)
 
 In the Expo app:
 
@@ -38,14 +63,18 @@ After switching roles, the Expo app does:
    - `user.isContractor`
    - `user.contractor` and `user.contractor.confirmed`
 
-The **Next.js `/api/auth/session` endpoint currently does NOT**:
+There are **two compounding issues**:
 
-- Read the `session-role` cookie for mobile JWT-based requests, or
-- Enrich the `user` object with:
-  - `isContractor: true` (based on `session-role`)
-  - `contractor` profile data
+1. **Expo/Axios does not send cookies** — `session-role` is set as an HTTP cookie by
+   `switch-role`, but Axios in React Native never sends it back. So the session endpoint
+   can't read it for mobile callers. *(Frontend fix: optimistic `updateUser()` — see Status
+   above.)*
+2. **Next.js `/api/auth/session` does not enrich the mobile user object** even if the cookie
+   could be read — it currently does not include `isContractor: true` or the `contractor`
+   profile based on `session-role`. *(Backend fix: described below.)*
 
-So even after switching to contractor mode, the session still looks like a “normal user” to the Expo app.
+Even after the frontend optimistic fix, the background `refreshSession()` will still return
+stale data until the backend is updated.
 
 ---
 

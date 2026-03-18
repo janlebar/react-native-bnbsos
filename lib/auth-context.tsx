@@ -26,6 +26,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   checkAuth: () => Promise<void>;
   refreshSession: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -131,6 +132,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   /**
+   * Optimistically update user fields in context and cache.
+   * Use this for immediate local state changes (e.g. role switching)
+   * without waiting for a server round-trip.
+   */
+  const updateUser = useCallback((updates: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updates };
+      // Fire-and-forget cache update
+      saveUserData(updated).catch((err) =>
+        console.error("Failed to cache updated user:", err)
+      );
+      return updated;
+    });
+  }, []);
+
+  /**
    * Refresh session - useful for pulling latest user data
    */
   const refreshSession = async () => {
@@ -158,6 +176,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signOut,
     checkAuth,
     refreshSession,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
