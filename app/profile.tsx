@@ -15,9 +15,6 @@ import FooterMenu, { FOOTER_HEIGHT } from "./user/footerMenu";
 import { RoleSwitchButton } from "../components/RoleSwitchButton";
 
 const links = [
-  { href: "/server", title: "Server" },
-  { href: "/client", title: "Client" },
-  { href: "/admin", title: "Admin" },
   { href: "/settings", title: "Account Settings" },
   { href: "/contractor", title: "Contractor Settings" },
 ];
