@@ -16,7 +16,25 @@ import {
   getUserData,
   saveUserData,
   deleteTokens,
+  saveActiveRole,
+  getActiveRole,
 } from "../utils/secureStore";
+
+/**
+ * Apply the locally-stored role preference to a user object.
+ * The mobile app uses JWT Bearer tokens and cannot forward cookies,
+ * so the backend's /api/auth/session may still return a stale
+ * isContractor value even after the user switched roles.
+ * The local activeRole in SecureStore is the source of truth.
+ */
+async function applyRoleOverride(user: User): Promise<User> {
+  const activeRole = await getActiveRole();
+  if (activeRole === null) {
+    // No explicit preference stored – trust the backend value.
+    return user;
+  }
+  return { ...user, isContractor: activeRole === "contractor" };
+}
 
 interface AuthContextType {
   user: User | null;
@@ -66,8 +84,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Then verify with server
       try {
-        const currentUser = await authService.getSession();
-        if (currentUser) {
+        const serverUser = await authService.getSession();
+        if (serverUser) {
+          // Apply the locally-stored role preference so a stale backend
+          // response never overwrites the user's explicit role choice.
+          const currentUser = await applyRoleOverride(serverUser);
           setUser(currentUser);
           // Update cached user data
           await saveUserData(currentUser);
@@ -80,8 +101,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // If session check fails, try to refresh token
         try {
           await authService.refreshAccessToken();
-          const currentUser = await authService.getSession();
-          if (currentUser) {
+          const serverUser = await authService.getSession();
+          if (serverUser) {
+            const currentUser = await applyRoleOverride(serverUser);
             setUser(currentUser);
             await saveUserData(currentUser);
           } else {
@@ -137,6 +159,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * without waiting for a server round-trip.
    */
   const updateUser = useCallback((updates: Partial<User>) => {
+    // If isContractor is being explicitly changed, persist the role preference
+    // so that subsequent session refreshes don't overwrite it with stale
+    // backend data (mobile callers cannot forward the session-role cookie).
+    if ("isContractor" in updates) {
+      const newRole = updates.isContractor ? "contractor" : "user";
+      saveActiveRole(newRole).catch((err) =>
+        console.error("Failed to save active role:", err)
+      );
+    }
+
     setUser((prev) => {
       if (!prev) return null;
       const updated = { ...prev, ...updates };
@@ -153,8 +185,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const refreshSession = async () => {
     try {
-      const currentUser = await authService.getSession();
-      if (currentUser) {
+      const serverUser = await authService.getSession();
+      if (serverUser) {
+        // Apply the locally-stored role preference so a stale backend
+        // response never overwrites the user's explicit role choice.
+        const currentUser = await applyRoleOverride(serverUser);
         setUser(currentUser);
         await saveUserData(currentUser);
       } else {
@@ -163,8 +198,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     } catch (error) {
       console.error("Session refresh failed:", error);
-      await deleteTokens();
-      setUser(null);
+      // Don't wipe the user on a transient error – just log it.
     }
   };
 

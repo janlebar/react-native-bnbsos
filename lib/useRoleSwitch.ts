@@ -5,11 +5,12 @@ import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from './auth-context';
+
 import { switchRoleApi } from '../api/authapi';
 
 export function useRoleSwitch() {
   const [switching, setSwitching] = useState(false);
-  const { user, updateUser, refreshSession } = useAuth();
+  const { user, updateUser } = useAuth();
   const router = useRouter();
 
   // Derive hasContractorProfile from contractor existence
@@ -51,19 +52,13 @@ export function useRoleSwitch() {
         console.log('🔄 Role Switch - Result:', result);
 
         if (result.success) {
-          // ─── Optimistic local update ───────────────────────────────────
-          // The backend uses a cookie to track active role, but Expo/Axios
-          // does not forward cookies, so refreshSession() would return stale
-          // data. We update the user in context directly instead.
+          // Update the user in context and persist the role preference to
+          // SecureStore. From this point any call to refreshSession() or
+          // checkAuth() will re-apply the override, so the backend's stale
+          // isContractor value can never overwrite the user's explicit choice.
           updateUser({ isContractor: newRole === 'contractor' });
 
-          // Kick off a background session refresh in case the backend has
-          // been updated to persist the role in a way mobile can read it.
-          // We intentionally do NOT await this so it cannot block navigation
-          // or overwrite the optimistic state before we navigate.
-          refreshSession().catch(() => {/* silent – best-effort */});
-
-          // Navigate first, then show the alert so the new screen is ready.
+          // Navigate first so the new screen is ready before the alert fires.
           if (newRole === 'contractor') {
             router.replace('/contractors');
           } else {
@@ -105,7 +100,7 @@ export function useRoleSwitch() {
         setSwitching(false);
       }
     },
-    [user, hasContractorProfile, updateUser, refreshSession, router]
+    [user, hasContractorProfile, updateUser, router]
   );
 
   return {

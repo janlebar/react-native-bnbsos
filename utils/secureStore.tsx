@@ -7,6 +7,10 @@ import { Platform } from "react-native";
 const ACCESS_TOKEN_KEY = "better_auth_access_token";
 const REFRESH_TOKEN_KEY = "better_auth_refresh_token";
 const USER_DATA_KEY = "better_auth_user_data";
+// Persists the user's chosen active role so that session refreshes
+// (which may return stale isContractor from the backend) don't
+// overwrite the role the user explicitly selected.
+const ACTIVE_ROLE_KEY = "better_auth_active_role";
 
 /**
  * Save access token (JWT with 20s expiry)
@@ -153,6 +157,60 @@ export const deleteUserData = async (): Promise<void> => {
 };
 
 /**
+ * Save the user's actively chosen role ('user' | 'contractor').
+ * This overrides whatever the backend session endpoint returns for
+ * isContractor, so mobile callers don't lose their chosen role on refresh.
+ */
+export const saveActiveRole = async (
+  role: "user" | "contractor"
+): Promise<void> => {
+  try {
+    if (Platform.OS === "web") {
+      localStorage.setItem(ACTIVE_ROLE_KEY, role);
+    } else {
+      await SecureStore.setItemAsync(ACTIVE_ROLE_KEY, role);
+    }
+  } catch (error) {
+    console.error("Error saving active role:", error);
+  }
+};
+
+/**
+ * Get the user's actively chosen role.
+ * Returns null if no role has been explicitly chosen (fall back to backend).
+ */
+export const getActiveRole = async (): Promise<"user" | "contractor" | null> => {
+  try {
+    let value: string | null;
+    if (Platform.OS === "web") {
+      value = localStorage.getItem(ACTIVE_ROLE_KEY);
+    } else {
+      value = await SecureStore.getItemAsync(ACTIVE_ROLE_KEY);
+    }
+    if (value === "user" || value === "contractor") return value;
+    return null;
+  } catch (error) {
+    console.error("Error getting active role:", error);
+    return null;
+  }
+};
+
+/**
+ * Delete the active role preference (on logout).
+ */
+export const deleteActiveRole = async (): Promise<void> => {
+  try {
+    if (Platform.OS === "web") {
+      localStorage.removeItem(ACTIVE_ROLE_KEY);
+    } else {
+      await SecureStore.deleteItemAsync(ACTIVE_ROLE_KEY);
+    }
+  } catch (error) {
+    console.error("Error deleting active role:", error);
+  }
+};
+
+/**
  * Delete all tokens and user data (logout)
  */
 export const deleteTokens = async (): Promise<void> => {
@@ -160,5 +218,6 @@ export const deleteTokens = async (): Promise<void> => {
     deleteToken(),
     deleteRefreshToken(),
     deleteUserData(),
+    deleteActiveRole(),
   ]);
 };
