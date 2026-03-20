@@ -16,7 +16,6 @@ import ContractorGrid from "../../components/home/ContractorGrid";
 import SortingBar from "../../components/home/SortingBar";
 import { contractorsService } from "../../api/contractorsApi";
 import { Contractor, ServiceCategory, SortOption, SortDirection } from "../../types/home";
-import { RoleSwitchButton } from "../../components/RoleSwitchButton";
 
 export default function Home() {
   const { user, isAuthenticated } = useAuth();
@@ -246,9 +245,6 @@ export default function Home() {
         {/* Header with Role Switch */}
         <View style={styles.headerContainer}>
           <View style={styles.headerSpacer} />
-          <View style={styles.headerButton}>
-            <RoleSwitchButton variant="compact" />
-          </View>
         </View>
 
         {/* Search Input */}
@@ -326,9 +322,6 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     flex: 1,
-  },
-  headerButton: {
-    alignItems: "flex-end",
   },
   gridContainer: {
     flex: 1,

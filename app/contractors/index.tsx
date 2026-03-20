@@ -13,7 +13,6 @@ import { useRouter } from "expo-router";
 import { ContractorRouteGuard } from "../../components/ContractorRouteGuard";
 import { useAuth } from "../../lib/auth-context";
 import FooterMenu, { FOOTER_HEIGHT } from "../user/footerMenu";
-import { RoleSwitchButton } from "../../components/RoleSwitchButton";
 import AnalyticsIcon from "../../assets/icons/analytics.svg";
 import ProjectsIcon from "../../assets/icons/projects.svg";
 import CollaborationsIcon from "../../assets/icons/collaborations.svg";
@@ -64,9 +63,6 @@ export default function ContractorDashboard() {
                 {contractorCity && (
                   <Text style={styles.locationText}>📍 {contractorCity}</Text>
                 )}
-              </View>
-              <View style={styles.headerButton}>
-                <RoleSwitchButton variant="compact" />
               </View>
             </View>
           </View>
@@ -144,10 +140,6 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flex: 1,
-  },
-  headerButton: {
-    marginLeft: 16,
-    marginTop: 4,
   },
   welcomeText: {
     fontSize: 16,
