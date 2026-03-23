@@ -14,6 +14,8 @@ interface SessionProviderProps {
 }
 
 export function SessionProvider({ children }: SessionProviderProps) {
+  // authClient is configured with `credentials: "omit"` on web (see lib/auth-client.ts)
+  // to prevent the CORS preflight error on GET /api/auth/get-session.
   const { data: session, isPending: isLoading } = authClient.useSession();
 
   const signOut = async () => {

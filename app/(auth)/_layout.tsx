@@ -1,5 +1,6 @@
 import React from "react";
 import { Stack, useRouter } from "expo-router";
+
 import { useAuth } from "../../lib/auth-context";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
 
@@ -22,7 +23,12 @@ export default function AuthenticatedLayout() {
     return null;
   }
 
-  return <Stack />;
+  return (
+    <Stack>
+      <Stack.Screen name="home" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
+    </Stack>
+  );
 }
 
 const styles = StyleSheet.create({
