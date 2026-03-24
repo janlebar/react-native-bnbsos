@@ -239,7 +239,7 @@ export default function Home() {
 
   return (
     // 🔵 BLUE = SafeAreaView
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: "transparent" }]}>
+    <SafeAreaView edges={["top", "left", "right"]} style={[styles.safeArea, { backgroundColor: "transparent" }]}>
       {/* 🟣 PURPLE = outer container View */}
       <View style={[styles.container, { backgroundColor: "transparent" }]}>
         {/* Header with Role Switch */}
