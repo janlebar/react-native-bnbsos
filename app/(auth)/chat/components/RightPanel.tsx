@@ -9,6 +9,7 @@ import {
   Alert,
   Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import MessageInput from "./MessageInput";
 import TimeSlotMessage from "./TimeSlotMessage";
@@ -453,18 +454,20 @@ export default function RightPanel({
       </ScrollView>
 
       {/* Message Input */}
-      <MessageInput
-        conversationId={selectedConversationId || undefined}
-        receiverId={contactInfo.receiverId || undefined}
-        receiverName={contactInfo.name}
-        onMessageSent={(newMessage) => {
-          setDisplayedMessages((prev) => [...prev, newMessage]);
-          setTimeout(
-            () => scrollViewRef.current?.scrollToEnd({ animated: true }),
-            100
-          );
-        }}
-      />
+      <SafeAreaView edges={["bottom"]} style={styles.inputSafeArea}>
+        <MessageInput
+          conversationId={selectedConversationId || undefined}
+          receiverId={contactInfo.receiverId || undefined}
+          receiverName={contactInfo.name}
+          onMessageSent={(newMessage) => {
+            setDisplayedMessages((prev) => [...prev, newMessage]);
+            setTimeout(
+              () => scrollViewRef.current?.scrollToEnd({ animated: true }),
+              100
+            );
+          }}
+        />
+      </SafeAreaView>
 
       {/* Schedule Planner Overlay */}
       {showSchedule && (
@@ -666,5 +669,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#111827",
+  },
+  inputSafeArea: {
+    backgroundColor: "#fff",
   },
 });
