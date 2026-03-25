@@ -33,9 +33,7 @@ import {
   type UpdateSettingsData,
 } from "../../api/settingsApi";
 
-// ─── Optional: uncomment after running `npx expo install expo-image-picker` ──
-// import * as ImagePicker from "expo-image-picker";
-// ─────────────────────────────────────────────────────────────────────────────
+import * as ImagePicker from "expo-image-picker";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -90,37 +88,29 @@ export default function SettingsScreen() {
 
   // ── Avatar: pick from device ──────────────────────────────────────────────
   const handlePickAvatar = async () => {
-    // ── Uncomment this block after installing expo-image-picker ─────────────
-    // const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    // if (!permission.granted) {
-    //   Alert.alert("Permission required", "Allow access to your photo library to change avatar.");
-    //   return;
-    // }
-    // const result = await ImagePicker.launchImageLibraryAsync({
-    //   mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    //   allowsEditing: true,
-    //   aspect: [1, 1],
-    //   quality: 0.8,
-    // });
-    // if (result.canceled || !result.assets?.length) return;
-    // const asset = result.assets[0];
-    // const filename = asset.fileName ?? `avatar_${Date.now()}.jpg`;
-    // try {
-    //   setUploadingAvatar(true);
-    //   const { url } = await uploadAvatar(asset.uri, filename);
-    //   setAvatarUrl(url);
-    // } catch (err: any) {
-    //   Alert.alert("Upload failed", err?.message ?? "Could not upload avatar.");
-    // } finally {
-    //   setUploadingAvatar(false);
-    // }
-    // ────────────────────────────────────────────────────────────────────────
-
-    // Placeholder until expo-image-picker is installed
-    Alert.alert(
-      "Not yet available",
-      "Install expo-image-picker to enable photo picking:\n\nnpx expo install expo-image-picker\n\nThen uncomment the ImagePicker block in app/(auth)/settings.tsx"
-    );
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow access to your photo library to change avatar.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    const filename = asset.fileName ?? `avatar_${Date.now()}.jpg`;
+    try {
+      setUploadingAvatar(true);
+      const { url } = await uploadAvatar(asset.uri, filename);
+      setAvatarUrl(url);
+    } catch (err: any) {
+      Alert.alert("Upload failed", err?.message ?? "Could not upload avatar.");
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   // ── Avatar: delete ────────────────────────────────────────────────────────

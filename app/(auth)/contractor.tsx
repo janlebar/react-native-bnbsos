@@ -37,9 +37,7 @@ import {
   type UpdateContractorProfileData,
 } from "../../api/contractorSettingsApi";
 
-// ─── Optional: uncomment after running `npx expo install expo-image-picker` ──
-// import * as ImagePicker from "expo-image-picker";
-// ─────────────────────────────────────────────────────────────────────────────
+import * as ImagePicker from "expo-image-picker";
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -160,37 +158,30 @@ export default function ContractorSettingsScreen() {
   // ── Background image handlers ─────────────────────────────────────────────
 
   const handlePickBackground = async () => {
-    // ── Uncomment after installing expo-image-picker ──────────────────────
-    // const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    // if (!permission.granted) {
-    //   Alert.alert("Permission required", "Allow photo library access to upload a background image.");
-    //   return;
-    // }
-    // const result = await ImagePicker.launchImageLibraryAsync({
-    //   mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    //   allowsEditing: true,
-    //   aspect: [16, 9],
-    //   quality: 0.8,
-    // });
-    // if (result.canceled || !result.assets?.length) return;
-    // const asset = result.assets[0];
-    // const filename = asset.fileName ?? `bg_${Date.now()}.jpg`;
-    // try {
-    //   setUploadingBg(true);
-    //   const { uploadBackgroundImage } = await import("../../api/contractorSettingsApi");
-    //   const { url } = await uploadBackgroundImage(asset.uri, filename);
-    //   setBackgroundUrl(url);
-    // } catch (e: any) {
-    //   Alert.alert("Upload failed", e?.message ?? "Could not upload image.");
-    // } finally {
-    //   setUploadingBg(false);
-    // }
-    // ─────────────────────────────────────────────────────────────────────
-
-    Alert.alert(
-      "Not yet available",
-      "Install expo-image-picker to enable background photo picking:\n\nnpx expo install expo-image-picker\n\nThen uncomment the ImagePicker block in app/(auth)/contractor.tsx"
-    );
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission required", "Allow photo library access to upload a background image.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.length) return;
+    const asset = result.assets[0];
+    const filename = asset.fileName ?? `bg_${Date.now()}.jpg`;
+    try {
+      setUploadingBg(true);
+      const { uploadBackgroundImage } = await import("../../api/contractorSettingsApi");
+      const { url } = await uploadBackgroundImage(asset.uri, filename);
+      setBackgroundUrl(url);
+    } catch (e: any) {
+      Alert.alert("Upload failed", e?.message ?? "Could not upload image.");
+    } finally {
+      setUploadingBg(false);
+    }
   };
 
   const handleDeleteBackground = () => {
