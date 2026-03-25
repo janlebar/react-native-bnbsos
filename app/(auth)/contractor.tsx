@@ -86,6 +86,8 @@ export default function ContractorSettingsScreen() {
   // ── Section 1: Background image ───────────────────────────────────────────
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
   const [uploadingBg, setUploadingBg] = useState(false);
+  // Holds the locally-selected image (URI + filename) pending user confirmation
+  const [pendingBg, setPendingBg] = useState<{ uri: string; filename: string } | null>(null);
 
   // ── Section 2: Profile fields ─────────────────────────────────────────────
   const [name, setName] = useState("");
@@ -165,23 +167,34 @@ export default function ContractorSettingsScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
       quality: 0.8,
     });
     if (result.canceled || !result.assets?.length) return;
     const asset = result.assets[0];
     const filename = asset.fileName ?? `bg_${Date.now()}.jpg`;
+    // Stage the selection — user must confirm before it uploads
+    setPendingBg({ uri: asset.uri, filename });
+  };
+
+  /** User tapped "Use This Image" — now actually upload it. */
+  const handleConfirmBackground = async () => {
+    if (!pendingBg) return;
     try {
       setUploadingBg(true);
       const { uploadBackgroundImage } = await import("../../api/contractorSettingsApi");
-      const { url } = await uploadBackgroundImage(asset.uri, filename);
+      const { url } = await uploadBackgroundImage(pendingBg.uri, pendingBg.filename);
       setBackgroundUrl(url);
+      setPendingBg(null);
     } catch (e: any) {
       Alert.alert("Upload failed", e?.message ?? "Could not upload image.");
     } finally {
       setUploadingBg(false);
     }
+  };
+
+  /** User tapped "Discard" — throw away the pending selection. */
+  const handleDiscardBackground = () => {
+    setPendingBg(null);
   };
 
   const handleDeleteBackground = () => {
@@ -395,43 +408,80 @@ export default function ContractorSettingsScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Background Image</Text>
 
-        {backgroundUrl ? (
-          <Image
-            source={{ uri: backgroundUrl }}
-            style={styles.bgPreview}
-            resizeMode="cover"
-          />
+        {/* ── Pending confirmation preview ──────────────────────────── */}
+        {pendingBg ? (
+          <>
+            <View style={styles.pendingBadge}>
+              <Text style={styles.pendingBadgeText}>Preview — confirm or discard below</Text>
+            </View>
+            <Image
+              source={{ uri: pendingBg.uri }}
+              style={styles.bgPreview}
+              resizeMode="cover"
+            />
+            <View style={styles.bgButtons}>
+              <TouchableOpacity
+                style={[styles.bgBtnConfirm, uploadingBg && styles.disabledBtn]}
+                onPress={handleConfirmBackground}
+                disabled={uploadingBg}
+              >
+                {uploadingBg ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.bgBtnText}>✓ Use This Image</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.bgBtnDanger, uploadingBg && styles.disabledBtn]}
+                onPress={handleDiscardBackground}
+                disabled={uploadingBg}
+              >
+                <Text style={styles.bgBtnText}>✕ Discard</Text>
+              </TouchableOpacity>
+            </View>
+          </>
         ) : (
-          <View style={styles.bgPlaceholder}>
-            <Text style={styles.bgPlaceholderText}>No background image</Text>
-          </View>
-        )}
-
-        <View style={styles.bgButtons}>
-          <TouchableOpacity
-            style={[styles.bgBtn, uploadingBg && styles.disabledBtn]}
-            onPress={handlePickBackground}
-            disabled={uploadingBg}
-          >
-            {uploadingBg ? (
-              <ActivityIndicator size="small" color="#fff" />
+          <>
+            {/* ── Saved / empty state ───────────────────────────────── */}
+            {backgroundUrl ? (
+              <Image
+                source={{ uri: backgroundUrl }}
+                style={styles.bgPreview}
+                resizeMode="cover"
+              />
             ) : (
-              <Text style={styles.bgBtnText}>
-                {backgroundUrl ? "Change Image" : "Upload Image"}
-              </Text>
+              <View style={styles.bgPlaceholder}>
+                <Text style={styles.bgPlaceholderText}>No background image</Text>
+              </View>
             )}
-          </TouchableOpacity>
 
-          {backgroundUrl && (
-            <TouchableOpacity
-              style={[styles.bgBtnDanger, uploadingBg && styles.disabledBtn]}
-              onPress={handleDeleteBackground}
-              disabled={uploadingBg}
-            >
-              <Text style={styles.bgBtnText}>Remove</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+            <View style={styles.bgButtons}>
+              <TouchableOpacity
+                style={[styles.bgBtn, uploadingBg && styles.disabledBtn]}
+                onPress={handlePickBackground}
+                disabled={uploadingBg}
+              >
+                {uploadingBg ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.bgBtnText}>
+                    {backgroundUrl ? "Change Image" : "Upload Image"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {backgroundUrl && (
+                <TouchableOpacity
+                  style={[styles.bgBtnDanger, uploadingBg && styles.disabledBtn]}
+                  onPress={handleDeleteBackground}
+                  disabled={uploadingBg}
+                >
+                  <Text style={styles.bgBtnText}>Remove</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        )}
       </View>
 
       {/* ══════════════════════════════════════════════════════════════════
@@ -854,10 +904,31 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
   },
+  bgBtnConfirm: {
+    flex: 1,
+    backgroundColor: "#059669",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
   bgBtnText: {
     color: "#fff",
     fontSize: 14,
     fontWeight: "600",
+  },
+  pendingBadge: {
+    backgroundColor: "#fef9c3",
+    borderLeftWidth: 3,
+    borderLeftColor: "#eab308",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  pendingBadgeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#713f12",
   },
 
   // Banners
