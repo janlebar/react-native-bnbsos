@@ -13,6 +13,7 @@ import { loginApi } from "../api/authapi";
 import { LoginAs } from "../api/types";
 import { useAuth } from "../lib/auth-context";
 import OAuthButtons from "./OAuthButtons";
+import { logger } from "../utils/logger"; // H-4: dev-gated logger
 
 interface LoginFormProps {
   isContractor?: boolean;
@@ -25,10 +26,29 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
   const [loginAs, setLoginAs] = useState<LoginAs>(
     isContractor ? "contractor" : "user"
   );
+  // M-6: Exponential backoff state — track consecutive failures and lockout time
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState<Date | null>(null);
+
   const router = useRouter();
   const { signIn, refreshSession } = useAuth();
 
   const handleLogin = async () => {
+    // M-6: Check lockout before attempting login
+    if (lockedUntil && new Date() < lockedUntil) {
+      const secondsRemaining = Math.ceil((lockedUntil.getTime() - Date.now()) / 1000);
+      const minutes = Math.floor(secondsRemaining / 60);
+      const seconds = secondsRemaining % 60;
+      const timeMsg = minutes > 0
+        ? `${minutes} minute${minutes > 1 ? "s" : ""} ${seconds > 0 ? `${seconds}s` : ""}`
+        : `${seconds} second${seconds !== 1 ? "s" : ""}`;
+      Alert.alert(
+        "Too many login attempts",
+        `Please wait ${timeMsg} before trying again.`
+      );
+      return;
+    }
+
     if (!email.trim() || !password.trim()) {
       Alert.alert("Error", "Please fill in all fields");
       return;
@@ -37,8 +57,8 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
     setIsPending(true);
 
     try {
-      console.log("Starting login with email:", email.trim());
-      console.log("Login mode:", loginAs);
+      // H-4: Do not log email, password, or token values.
+      logger.debug("🔐 Login attempt — mode:", loginAs);
 
       const response = await loginApi({
         email: email.trim(),
@@ -48,30 +68,25 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
         loginAs,
       });
 
-      console.log("Login response received:", {
-        hasUser: !!response.user,
-        hasToken: !!response.token,
-        userId: response.user?.id,
-        loginAs: response.loginAs,
-        isContractor: response.user?.isContractor,
-      });
-
       // Use user data from the response
       if (response.user) {
+        // M-6: Reset attempt counter on successful login
+        setLoginAttempts(0);
+        setLockedUntil(null);
+
         // Sign in the user and wait for state update
         await signIn(response.user);
         
-        console.log("User signed in, navigating...");
+        logger.debug("✅ User signed in, navigating...");
         
         // If user is a contractor but contractor profile is missing, refresh session
         // This handles cases where backend hasn't been updated yet
         if (response.user.isContractor && response.user.contractorId && !response.user.contractor) {
-          console.log("Contractor detected but profile missing, refreshing session...");
+          logger.debug("Contractor detected but profile missing, refreshing session...");
           try {
             await refreshSession();
-            console.log("Session refreshed with contractor profile");
           } catch (error) {
-            console.warn("Failed to refresh session, continuing anyway:", error);
+            logger.warn("Failed to refresh session, continuing anyway:", error);
             // Continue - backend may not be updated yet, but we'll try navigation
           }
         }
@@ -84,25 +99,41 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
           const isBackendContractor = !!response.user?.isContractor;
 
           // Navigate based on backend-confirmed contractor status and mode
-          // Note: If contractor profile was missing, refreshSession updated the context
-          // The ContractorRouteGuard will verify access using the updated user from context
           if (
             effectiveLoginAs === "contractor" &&
             isBackendContractor
           ) {
-            console.log("Navigating to /contractors (dashboard)");
             router.replace("/contractors");
           } else {
-            console.log("Navigating to /(auth)/home");
             router.replace("/(auth)/home");
           }
-        }, 200); // Increased timeout to allow refreshSession to complete and context to update
+        }, 200);
       } else {
         throw new Error("No user data in response");
       }
     } catch (error: any) {
-      console.error("Login error:", error);
-      if (error?.code === "NO_CONTRACTOR_PROFILE") {
+      logger.error("Login error:", error.message);
+
+      // M-6: Increment attempt counter and apply exponential backoff
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+
+      // Server-side rate limit (429) — use the server's message directly
+      if (error?.code === "RATE_LIMITED") {
+        Alert.alert("Too many attempts", error.message);
+        return; // Don't increment client-side counter — server is already tracking
+      }
+
+      // Lock out after 5 consecutive failures: 2^(n-5) minutes, capped at 30 minutes
+      if (newAttempts >= 5) {
+        const lockMinutes = Math.min(Math.pow(2, newAttempts - 5), 30);
+        const lockUntil = new Date(Date.now() + lockMinutes * 60 * 1000);
+        setLockedUntil(lockUntil);
+        Alert.alert(
+          "Too many failed attempts",
+          `Your account has been temporarily locked for ${lockMinutes} minute${lockMinutes !== 1 ? "s" : ""}. Please try again later.`
+        );
+      } else if (error?.code === "NO_CONTRACTOR_PROFILE") {
         Alert.alert(
           "Contractor profile not found",
           "No contractor profile found for this account. Please complete contractor onboarding."
@@ -203,10 +234,7 @@ export default function LoginForm({ isContractor = false }: LoginFormProps) {
 
         <TouchableOpacity
           style={[styles.button, isPending && styles.buttonDisabled]}
-          onPress={() => {
-            console.log("🔘 Login button pressed!");
-            handleLogin();
-          }}
+          onPress={handleLogin}
           disabled={isPending}
         >
           {isPending ? (

@@ -2,6 +2,7 @@
 // Better Auth Mobile Integration
 
 import axios, { AxiosResponse, AxiosError } from "axios";
+import { Platform } from "react-native";
 import {
   UserCredentials,
   LoginResponse,
@@ -10,23 +11,35 @@ import {
   LoginAs,
 } from "./types";
 import { saveToken, saveRefreshToken, getToken, getRefreshToken, deleteTokens } from "../utils/secureStore";
+import { logger } from "../utils/logger"; // H-4: dev-gated logger
 
 const API_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
 
-// Debug: Log env variable values
-console.log("🔍 Environment check:");
-console.log("  EXPO_PUBLIC_BASE_URL:", process.env.EXPO_PUBLIC_BASE_URL);
-console.log("  API_URL resolved to:", API_URL);
+// Show the actual URL in dev so we can confirm which server is being targeted.
+// Tokens/emails are still never logged — only the base URL.
+logger.debug("🔍 API_URL:", API_URL);
 
-// Create axios instance with default config for Better Auth
+// Create axios instance with default config for Better Auth.
+// X-Client-Platform is set as a DEFAULT header so it is present on every
+// request — including the login call — without relying on the async interceptor.
+// The server reads this header to decide whether to return tokens in the
+// response body (mobile → SecureStore) or set HttpOnly cookies (web).
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
+    // Always "mobile" — Expo is a mobile-first app even when running as web.
+    // Sending "web" would cause the server to issue HttpOnly cookies instead of
+    // JWT tokens in the response body. Expo cannot read HttpOnly cookies and
+    // cannot send them on cross-origin requests, breaking all authenticated calls.
+    "X-Client-Platform": "mobile",
   },
+  timeout: 10000, // 10-second timeout — surfaces "server not running" quickly
 });
 
-// Add request interceptor to include access token
+// Add request interceptor to attach the Bearer token on authenticated requests.
+// X-Client-Platform is already in the default headers above; the interceptor
+// only needs to attach the Authorization header.
 api.interceptors.request.use(
   async (config) => {
     const token = await getToken();
@@ -44,9 +57,35 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as any;
 
-    // If error is 401 and we haven't retried yet, try to refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Only attempt token refresh when:
+    //  1. Server returned 401 (unauthorized)
+    //  2. We haven't already retried this exact request
+    //  3. The failing request was NOT itself a refresh or login call
+    //     (prevents infinite retry loops if refresh/login returns 401)
+    const isRefreshOrLogin =
+      originalRequest?.url?.includes("/auth/refresh") ||
+      originalRequest?.url?.includes("/auth/login");
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isRefreshOrLogin
+    ) {
       originalRequest._retry = true;
+
+      // Detect refresh token reuse — server revokes the entire token family when
+      // a previously-used refresh token is replayed (indicates possible theft).
+      // Force a full logout rather than silently retrying.
+      const errorBody = error.response?.data as any;
+      if (errorBody?.error?.includes("already used")) {
+        logger.warn("⚠️ Refresh token reuse detected — all sessions revoked. Forcing logout.");
+        await deleteTokens();
+        const revokedError: Error & { code?: string } = new Error(
+          "Your session has been revoked due to suspicious activity. Please log in again."
+        );
+        revokedError.code = "SESSION_REVOKED";
+        return Promise.reject(revokedError);
+      }
 
       try {
         const refreshToken = await getRefreshToken();
@@ -54,13 +93,15 @@ api.interceptors.response.use(
           throw new Error("No refresh token available");
         }
 
-        // Call refresh endpoint
-        const { data } = await axios.post(
-          `${API_URL}/api/mobile/auth/refresh`,
+        // Use the api instance so X-Client-Platform is included automatically
+        const { data } = await api.post(
+          "/api/mobile/auth/refresh",
           { refreshToken }
         );
 
-        // Save new tokens
+        // CRITICAL: save the new refresh token immediately — the old one is now
+        // invalid (single-use rotation). The server will reject the old token
+        // if it is presented again and will revoke the entire session family.
         await saveToken(data.token);
         if (data.refreshToken) {
           await saveRefreshToken(data.refreshToken);
@@ -98,14 +139,14 @@ class AuthService {
     credentials: UserCredentials
   ): Promise<AuthResponse & { loginAs: LoginAs }> {
     try {
-      console.log("🔍 Login method - API_URL at runtime:", API_URL);
-      console.log("🔍 Login method - process.env.EXPO_PUBLIC_BASE_URL:", process.env.EXPO_PUBLIC_BASE_URL);
-      console.log("🔐 Attempting login to:", `${API_URL}/api/mobile/auth/login`);
-      console.log("📧 Email:", credentials.email);
-      console.log("👤 loginAs:", credentials.loginAs || "user");
+      // H-4: Never log email, password, tokens, or full response bodies.
+      logger.debug("🔐 Attempting login — loginAs:", credentials.loginAs || "user");
       
-      const response = await axios.post(
-        `${API_URL}/api/mobile/auth/login`,
+      // Use api.post() (not raw axios) so X-Client-Platform and timeout are
+      // applied from the instance defaults — critical for the server to return
+      // tokens in the body rather than HttpOnly cookies.
+      const response = await api.post(
+        "/api/mobile/auth/login",
         {
           email: credentials.email,
           password: credentials.password,
@@ -115,8 +156,7 @@ class AuthService {
         }
       );
 
-      console.log("✅ Login response status:", response.status);
-      console.log("📦 Response data:", JSON.stringify(response.data, null, 2));
+      logger.debug("✅ Login response status:", response.status);
 
       // Better Auth response format (proxied from backend):
       // { user, session, token?, refreshToken? }
@@ -124,7 +164,7 @@ class AuthService {
       const data = response.data;
       
       if (!data.user) {
-        console.error("❌ No user data in response");
+        logger.error("❌ No user data in login response");
         throw new Error("Invalid response from server: no user data");
       }
 
@@ -135,36 +175,35 @@ class AuthService {
       // Check for tokens in response (Better Auth JWT plugin format)
       if (data.token) {
         token = data.token;
-        console.log("🔑 Access token found in data.token");
+        logger.debug("🔑 Access token present in response");
       } else if (data.session?.token) {
         token = data.session.token;
-        console.log("🔑 Access token found in data.session.token");
+        logger.debug("🔑 Access token present in session");
       }
 
       if (data.refreshToken) {
         refreshToken = data.refreshToken;
-        console.log("🔄 Refresh token found in data.refreshToken");
+        logger.debug("🔄 Refresh token present in response");
       } else if (data.session?.refreshToken) {
         refreshToken = data.session.refreshToken;
-        console.log("🔄 Refresh token found in data.session.refreshToken");
+        logger.debug("🔄 Refresh token present in session");
       }
 
       // If no token found, Better Auth might be using session cookies
       // In that case, we need to use the session for subsequent requests
       if (!token) {
-        console.warn("⚠️ No token found in Better Auth response. Session-based auth may be used.");
+        logger.warn("⚠️ No token found in Better Auth response. Session-based auth may be used.");
         // For mobile, we still need a token. This might require additional setup.
         throw new Error("Token not found in response. Check Better Auth JWT plugin configuration.");
       }
 
-      // Save tokens
-      console.log("💾 Saving tokens to secure storage...");
+      // Save tokens to secure storage
       await saveToken(token);
       if (refreshToken) {
         await saveRefreshToken(refreshToken);
       }
 
-      console.log("✅ Login successful!");
+      logger.debug("✅ Login successful — user authenticated");
 
       const effectiveLoginAs: LoginAs =
         (data.loginAs as LoginAs | undefined) || "user";
@@ -183,19 +222,25 @@ class AuthService {
         loginAs: effectiveLoginAs,
       };
     } catch (error: any) {
-      console.error("❌ Login error:", error);
-      
+      // H-4: Do not log the full error response body — it may contain tokens.
       if (error.response) {
-        console.error("📡 Response status:", error.response.status);
-        console.error("📡 Response data:", error.response.data);
-        console.error("📡 Response headers:", error.response.headers);
+        logger.error("❌ Login failed — HTTP", error.response.status);
       } else if (error.request) {
-        console.error("📡 No response received. Request:", error.request);
-        console.error("🌐 Is Next.js server running on", API_URL, "?");
+        logger.error("❌ Login failed — no response received. Is the Next.js server running?");
       } else {
-        console.error("⚙️ Error setting up request:", error.message);
+        logger.error("❌ Login error:", error.message);
       }
-      
+
+      // Handle 429 Too Many Requests — server-side rate limiting
+      if (error.response?.status === 429) {
+        const retryAfter: number = error.response.data?.retryAfter ?? 60;
+        const rateLimitError: Error & { code?: string } = new Error(
+          `Too many login attempts. Please wait ${retryAfter} seconds before trying again.`
+        );
+        rateLimitError.code = "RATE_LIMITED";
+        throw rateLimitError;
+      }
+
       const responseData: any = error.response?.data;
       const backendMessage =
         responseData?.error ||
@@ -221,8 +266,8 @@ class AuthService {
     data: RegisterFormValues & { isContractor: boolean }
   ): Promise<AuthResponse> {
     try {
-      const response = await axios.post(
-        `${API_URL}/api/mobile/auth/register`,
+      const response = await api.post(
+        "/api/mobile/auth/register",
         {
           name: data.name,
           email: data.email,
@@ -283,27 +328,22 @@ class AuthService {
   }
 
   /**
-   * Logout and clear tokens
+   * Logout and clear tokens.
+   * Calls /api/mobile/auth/logout which revokes the stored refresh token in
+   * the database (server-side invalidation). The X-Client-Platform header is
+   * required so the server also clears the HttpOnly cookie for web clients.
+   * Local tokens are always cleared in the finally block regardless of server result.
    */
   async logout(): Promise<void> {
     try {
-      // Call Better Auth signout
-      const token = await getToken();
-      if (token) {
-        await axios.post(
-          `${API_URL}/api/auth/sign-out`,
-          {},
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-      }
+      // api.post() automatically attaches the Bearer token (via request interceptor)
+      // and X-Client-Platform (via default headers). The server revokes the
+      // stored refresh token so it cannot be replayed after logout.
+      await api.post("/api/mobile/auth/logout", {});
     } catch (error: any) {
-      console.error("Logout error:", error);
+      logger.error("Logout error:", error.message);
     } finally {
-      // Always clear local tokens
+      // Always clear local tokens regardless of server result
       await deleteTokens();
     }
   }
@@ -331,7 +371,7 @@ class AuthService {
    */
   async requestPasswordReset(email: string): Promise<void> {
     try {
-      await axios.post(`${API_URL}/api/mobile/auth/reset-password`, {
+      await api.post("/api/mobile/auth/reset-password", {
         email,
         redirectTo: "/reset-password", // Mobile app route
       });
@@ -348,7 +388,7 @@ class AuthService {
    */
   async resetPassword(token: string, newPassword: string): Promise<void> {
     try {
-      await axios.patch(`${API_URL}/api/mobile/auth/reset-password`, {
+      await api.patch("/api/mobile/auth/reset-password", {
         token,
         newPassword,
       });
@@ -370,8 +410,10 @@ class AuthService {
         throw new Error("No refresh token available");
       }
 
-      const response = await axios.post(
-        `${API_URL}/api/mobile/auth/refresh`,
+      // Use api.post() so X-Client-Platform is included — ensures tokens are
+      // returned in the body, not as HttpOnly cookies
+      const response = await api.post(
+        "/api/mobile/auth/refresh",
         { refreshToken }
       );
 

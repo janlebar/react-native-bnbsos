@@ -7,17 +7,49 @@
  */
 
 // Environment Constants
-export const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
+// H-2 Security fix: fail loudly if EXPO_PUBLIC_BASE_URL is missing or insecure in production.
+const _rawBaseUrl = process.env.EXPO_PUBLIC_BASE_URL;
+
+if (!_rawBaseUrl && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "[Security] EXPO_PUBLIC_BASE_URL must be set in production builds. " +
+    "Add it to your .env.production file."
+  );
+}
+
+if (_rawBaseUrl?.startsWith("http://") && process.env.NODE_ENV === "production") {
+  // eslint-disable-next-line no-console
+  console.error(
+    "[Security] EXPO_PUBLIC_BASE_URL is using HTTP in production. " +
+    "All API traffic including tokens will be sent in plaintext. Use HTTPS."
+  );
+}
+
+export const BASE_URL = _rawBaseUrl || "http://localhost:3000";
 export const APP_SCHEME = process.env.EXPO_PUBLIC_SCHEME || "myapp";
 
 // Better Auth Token Constants
-export const ACCESS_TOKEN_EXPIRY = "20s"; // 20 seconds (as per lib/jwt.ts in Next.js)
-export const REFRESH_TOKEN_EXPIRY = "30d"; // 30 days (as per lib/jwt.ts in Next.js)
-export const ACCESS_TOKEN_MAX_AGE = 20; // 20 seconds
-export const REFRESH_TOKEN_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
+// L-3 fix: Increased access token from 20s to 5m.
+//   - 20s provided no practical security benefit over 5m when refresh tokens are
+//     properly rotated and revoked on logout.
+//   - 20s caused near-constant refresh overhead (a new access token for every
+//     second API call), increasing server load and race condition probability.
+//   - 5m is still short enough to limit exposure from a stolen access token.
+//   - Update lib/jwt.ts in the Next.js backend to match (see security-nextjs.md).
+export const ACCESS_TOKEN_EXPIRY = "5m"; // 5 minutes
+export const ACCESS_TOKEN_MAX_AGE = 5 * 60; // 300 seconds
 
-// Token Refresh Settings
-export const REFRESH_BEFORE_EXPIRY_SEC = 15; // Refresh token 15 seconds before expiry (since access token is 20s)
+// M-4 fix: Reduced refresh token from 30d to 7d.
+//   - A 30-day window gives an attacker too long to silently replay a stolen token.
+//   - 7 days balances usability (most active users won't need to re-login) with
+//     a shorter stolen-token exposure window.
+//   - Enable refresh token rotation on the Next.js backend (see security-nextjs.md).
+//   - Update lib/jwt.ts in the Next.js backend to match.
+export const REFRESH_TOKEN_EXPIRY = "7d"; // 7 days (reduced from 30d)
+export const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
+
+// Token Refresh Settings — refresh 60 seconds before expiry to avoid edge cases
+export const REFRESH_BEFORE_EXPIRY_SEC = 60; // Refresh 60s before expiry (5m token)
 
 // Better Auth API Endpoints
 export const API_ENDPOINTS = {

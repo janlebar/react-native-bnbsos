@@ -12,13 +12,21 @@ const USER_DATA_KEY = "better_auth_user_data";
 // overwrite the role the user explicitly selected.
 const ACTIVE_ROLE_KEY = "better_auth_active_role";
 
+// H-1 Security fix: on web, use sessionStorage instead of localStorage.
+// sessionStorage is cleared when the tab/window closes, limiting the exposure
+// window compared to localStorage which persists indefinitely.
+// The ideal long-term fix is HttpOnly session cookies from the Next.js backend
+// (see nextjs-integration/secuity/security-nextjs.md H-1 section).
+const webStorage =
+  typeof sessionStorage !== "undefined" ? sessionStorage : null;
+
 /**
- * Save access token (JWT with 20s expiry)
+ * Save access token (JWT with 5m expiry)
  */
 export const saveToken = async (token: string): Promise<void> => {
   try {
     if (Platform.OS === "web") {
-      localStorage.setItem(ACCESS_TOKEN_KEY, token);
+      webStorage?.setItem(ACCESS_TOKEN_KEY, token);
     } else {
       await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, token);
     }
@@ -34,7 +42,7 @@ export const saveToken = async (token: string): Promise<void> => {
 export const getToken = async (): Promise<string | null> => {
   try {
     if (Platform.OS === "web") {
-      return localStorage.getItem(ACCESS_TOKEN_KEY);
+      return webStorage?.getItem(ACCESS_TOKEN_KEY) ?? null;
     } else {
       return await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
     }
@@ -45,12 +53,12 @@ export const getToken = async (): Promise<string | null> => {
 };
 
 /**
- * Save refresh token (JWT with 30d expiry)
+ * Save refresh token (JWT with 7d expiry)
  */
 export const saveRefreshToken = async (token: string): Promise<void> => {
   try {
     if (Platform.OS === "web") {
-      localStorage.setItem(REFRESH_TOKEN_KEY, token);
+      webStorage?.setItem(REFRESH_TOKEN_KEY, token);
     } else {
       await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
     }
@@ -66,7 +74,7 @@ export const saveRefreshToken = async (token: string): Promise<void> => {
 export const getRefreshToken = async (): Promise<string | null> => {
   try {
     if (Platform.OS === "web") {
-      return localStorage.getItem(REFRESH_TOKEN_KEY);
+      return webStorage?.getItem(REFRESH_TOKEN_KEY) ?? null;
     } else {
       return await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
     }
@@ -83,7 +91,7 @@ export const saveUserData = async (userData: any): Promise<void> => {
   try {
     const jsonData = JSON.stringify(userData);
     if (Platform.OS === "web") {
-      localStorage.setItem(USER_DATA_KEY, jsonData);
+      webStorage?.setItem(USER_DATA_KEY, jsonData);
     } else {
       await SecureStore.setItemAsync(USER_DATA_KEY, jsonData);
     }
@@ -100,7 +108,7 @@ export const getUserData = async (): Promise<any | null> => {
   try {
     let jsonData: string | null;
     if (Platform.OS === "web") {
-      jsonData = localStorage.getItem(USER_DATA_KEY);
+      jsonData = webStorage?.getItem(USER_DATA_KEY) ?? null;
     } else {
       jsonData = await SecureStore.getItemAsync(USER_DATA_KEY);
     }
@@ -117,7 +125,7 @@ export const getUserData = async (): Promise<any | null> => {
 export const deleteToken = async (): Promise<void> => {
   try {
     if (Platform.OS === "web") {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      webStorage?.removeItem(ACCESS_TOKEN_KEY);
     } else {
       await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
     }
@@ -132,7 +140,7 @@ export const deleteToken = async (): Promise<void> => {
 export const deleteRefreshToken = async (): Promise<void> => {
   try {
     if (Platform.OS === "web") {
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      webStorage?.removeItem(REFRESH_TOKEN_KEY);
     } else {
       await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
     }
@@ -147,7 +155,7 @@ export const deleteRefreshToken = async (): Promise<void> => {
 export const deleteUserData = async (): Promise<void> => {
   try {
     if (Platform.OS === "web") {
-      localStorage.removeItem(USER_DATA_KEY);
+      webStorage?.removeItem(USER_DATA_KEY);
     } else {
       await SecureStore.deleteItemAsync(USER_DATA_KEY);
     }
@@ -158,15 +166,14 @@ export const deleteUserData = async (): Promise<void> => {
 
 /**
  * Save the user's actively chosen role ('user' | 'contractor').
- * This overrides whatever the backend session endpoint returns for
- * isContractor, so mobile callers don't lose their chosen role on refresh.
+ * This is a UI display hint only — the server always re-verifies role (C-3).
  */
 export const saveActiveRole = async (
   role: "user" | "contractor"
 ): Promise<void> => {
   try {
     if (Platform.OS === "web") {
-      localStorage.setItem(ACTIVE_ROLE_KEY, role);
+      webStorage?.setItem(ACTIVE_ROLE_KEY, role);
     } else {
       await SecureStore.setItemAsync(ACTIVE_ROLE_KEY, role);
     }
@@ -183,7 +190,7 @@ export const getActiveRole = async (): Promise<"user" | "contractor" | null> => 
   try {
     let value: string | null;
     if (Platform.OS === "web") {
-      value = localStorage.getItem(ACTIVE_ROLE_KEY);
+      value = webStorage?.getItem(ACTIVE_ROLE_KEY) ?? null;
     } else {
       value = await SecureStore.getItemAsync(ACTIVE_ROLE_KEY);
     }
@@ -201,7 +208,7 @@ export const getActiveRole = async (): Promise<"user" | "contractor" | null> => 
 export const deleteActiveRole = async (): Promise<void> => {
   try {
     if (Platform.OS === "web") {
-      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      webStorage?.removeItem(ACTIVE_ROLE_KEY);
     } else {
       await SecureStore.deleteItemAsync(ACTIVE_ROLE_KEY);
     }

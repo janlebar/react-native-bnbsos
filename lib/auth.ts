@@ -79,12 +79,13 @@ export class AuthManager {
 
       console.log("Redirect URI:", redirectUri);
 
-      // Generate state parameter for security
-      const state = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        Math.random().toString(),
-        { encoding: Crypto.CryptoEncoding.HEX }
-      );
+      // Generate state parameter for CSRF protection using a cryptographically
+      // secure random source. Math.random() is NOT cryptographically secure
+      // and must not be used here (H-3 fix).
+      const randomBytes = await Crypto.getRandomBytesAsync(32);
+      const state = Array.from(randomBytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
 
       // Build the authorization URL that will redirect to your Next.js backend
       const authUrl = new URL(`${BASE_URL}/api/auth/mobile/signin/${provider}`);

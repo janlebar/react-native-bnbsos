@@ -70,16 +70,17 @@ export default function MessageInput({
     try {
       if (conversationId) {
         // Reply to existing conversation
+        // sender_id removed from call: server derives from JWT session (C-1 + C-2 fix)
         const message = await replyToConversation(
           conversationId,
-          currentUserId,
           content,
           subject
         );
         onMessageSent?.(message);
       } else if (receiverId) {
         // Create new conversation with first message
-        const message = await sendMessage(currentUserId, receiverId, content);
+        // senderId removed from call: server derives from JWT session (C-1 fix)
+        const message = await sendMessage(receiverId, content);
         if (message?.conversationId) {
           onConversationCreated?.(message.conversationId);
         }

@@ -19,20 +19,28 @@ import {
   saveActiveRole,
   getActiveRole,
 } from "../utils/secureStore";
+import { logger } from "../utils/logger"; // M-5: use dev-gated logger
 
 /**
- * Apply the locally-stored role preference to a user object.
- * The mobile app uses JWT Bearer tokens and cannot forward cookies,
- * so the backend's /api/auth/session may still return a stale
- * isContractor value even after the user switched roles.
- * The local activeRole in SecureStore is the source of truth.
+ * Apply the locally-stored role preference as a UI display hint only.
+ *
+ * SECURITY NOTE (C-3): This function is a UI optimisation ONLY.
+ * It must never be the gate for sensitive API calls or server-side access.
+ * The server always re-verifies contractor status from the JWT/database on
+ * every protected endpoint. The local value may lag behind the server.
+ *
+ * The mobile app uses JWT Bearer tokens and cannot forward cookies, so
+ * /api/auth/session may return a stale isContractor value after a role switch.
+ * The local activeRole in SecureStore is used only to keep the UI consistent.
  */
-async function applyRoleOverride(user: User): Promise<User> {
+async function applyDisplayRoleHint(user: User): Promise<User> {
   const activeRole = await getActiveRole();
   if (activeRole === null) {
     // No explicit preference stored – trust the backend value.
     return user;
   }
+  // _displayIsContractor is a UI hint; it is NOT sent to the server.
+  // The server always checks the JWT claim and the contractor DB record.
   return { ...user, isContractor: activeRole === "contractor" };
 }
 
@@ -41,7 +49,13 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   signIn: (userData: User) => Promise<void>;
-  signOut: () => Promise<void>;
+  /**
+   * Signs the user out locally and attempts server-side session invalidation.
+   * Returns true if the server confirmed the logout; false if the server call
+   * failed (e.g. network error). Local state is always cleared regardless.
+   * M-5: callers can surface a warning to the user when false is returned.
+   */
+  signOut: () => Promise<boolean>;
   checkAuth: () => Promise<void>;
   refreshSession: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
@@ -88,7 +102,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (serverUser) {
           // Apply the locally-stored role preference so a stale backend
           // response never overwrites the user's explicit role choice.
-          const currentUser = await applyRoleOverride(serverUser);
+          const currentUser = await applyDisplayRoleHint(serverUser);
           setUser(currentUser);
           // Update cached user data
           await saveUserData(currentUser);
@@ -103,7 +117,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           await authService.refreshAccessToken();
           const serverUser = await authService.getSession();
           if (serverUser) {
-            const currentUser = await applyRoleOverride(serverUser);
+            const currentUser = await applyDisplayRoleHint(serverUser);
             setUser(currentUser);
             await saveUserData(currentUser);
           } else {
@@ -138,19 +152,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   /**
-   * Sign out user and clear all tokens
+   * Sign out user and clear all tokens.
+   * M-5: Returns true if server-side invalidation succeeded; false if it failed.
+   * Local state is always cleared regardless of server result.
+   * The caller may warn the user when false is returned (their session may still
+   * be active on the server until the refresh token expires).
    */
-  const signOut = async () => {
+  const signOut = async (): Promise<boolean> => {
+    let serverLogoutOk = false;
     try {
-      // Call backend to invalidate session
+      // Call backend to invalidate session / revoke refresh token
       await authService.logout();
+      serverLogoutOk = true;
     } catch (error) {
-      console.error("Logout API failed:", error);
+      // M-5: Log the failure and surface it to the caller
+      logger.error("Server-side logout failed. Local tokens cleared but server session may persist:", error);
+      // Note: with 5m access tokens and 7d refresh tokens, the exposure window
+      // is bounded, but callers should warn the user if serverLogoutOk is false.
     } finally {
-      // Always clear local data
+      // Always clear local data regardless of server result
       await deleteTokens();
       setUser(null);
     }
+    return serverLogoutOk;
   };
 
   /**
@@ -187,9 +211,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const serverUser = await authService.getSession();
       if (serverUser) {
-        // Apply the locally-stored role preference so a stale backend
-        // response never overwrites the user's explicit role choice.
-        const currentUser = await applyRoleOverride(serverUser);
+        // Apply the locally-stored role preference as a UI hint only.
+        // The server always re-verifies role on protected endpoints (C-3).
+        const currentUser = await applyDisplayRoleHint(serverUser);
         setUser(currentUser);
         await saveUserData(currentUser);
       } else {

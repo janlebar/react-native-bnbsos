@@ -1,3 +1,11 @@
+// M-1 Security fix: this screen must never be accessible in production builds.
+// It exposes Better Auth session state, authentication flows, and API connectivity.
+if (!__DEV__) {
+  throw new Error(
+    "[Security] Test screen /test-better-auth is not available in production builds."
+  );
+}
+
 import React from "react";
 import {
   View,

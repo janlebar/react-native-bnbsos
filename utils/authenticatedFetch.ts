@@ -3,6 +3,7 @@
 
 import { getToken, saveToken, saveRefreshToken, deleteTokens } from "./secureStore";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import { Platform } from "react-native";
 
 const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
 
@@ -70,10 +71,16 @@ const authenticatedAxios = axios.create({
   baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
+    // Always "mobile" — Expo is a mobile-first app even when running as web.
+    // Sending "web" causes the server to issue HttpOnly cookies instead of JWT
+    // tokens, which Expo cannot read or send cross-origin.
+    "X-Client-Platform": "mobile",
   },
+  timeout: 10000,
 });
 
-// Request interceptor to add token
+// Request interceptor to attach the Bearer token on every request.
+// X-Client-Platform is already set in the default headers above.
 authenticatedAxios.interceptors.request.use(
   async (config) => {
     const token = await getToken();
@@ -91,7 +98,15 @@ authenticatedAxios.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isRefreshOrLogin =
+      originalRequest?.url?.includes("/auth/refresh") ||
+      originalRequest?.url?.includes("/auth/login");
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isRefreshOrLogin
+    ) {
       originalRequest._retry = true;
 
       try {

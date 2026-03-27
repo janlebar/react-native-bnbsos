@@ -83,8 +83,8 @@ export default function TimeSlotMessage({
 
     setIsApproving(true);
     try {
+      // contractorId removed: server derives from JWT session (C-3 fix)
       const result = await approveTimeSlot(
-        contractorId,
         slotData.startTime,
         slotData.endTime,
         messageId

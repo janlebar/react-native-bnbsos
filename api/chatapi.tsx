@@ -250,19 +250,34 @@ class ChatService {
   }
 
   // Send a message - JWT token authentication via interceptors
+  // sender_id is intentionally omitted: the server derives it from the JWT session (C-1 fix)
   async sendMessage(
-    senderId: string,
     receiverId: string,
     content: string,
     conversationId?: string
   ): Promise<ChatMessage> {
+    // M-3 Input validation: validate before sending to prevent malformed payloads
+    if (!content || typeof content !== "string") {
+      throw new Error("Message text is required");
+    }
+    const trimmedContent = content.trim();
+    if (trimmedContent.length === 0) {
+      throw new Error("Message text cannot be empty");
+    }
+    if (trimmedContent.length > 5000) {
+      throw new Error("Message text exceeds 5000 characters");
+    }
+    if (!receiverId || typeof receiverId !== "string" || receiverId.trim().length === 0) {
+      throw new Error("receiverId is required");
+    }
+
     try {
       const messageData = {
-        text: content,
-        sender_id: senderId,
+        text: trimmedContent,
         receiver_id: receiverId,
         conversationId: conversationId,
         subject: "New Message", // Default subject
+        // sender_id removed: server must derive from session.user.id (C-1)
       };
 
       const response = await api.post("/api/chat/messages", messageData);
@@ -274,16 +289,16 @@ class ChatService {
   }
 
   // Create a new conversation - JWT token authentication via interceptors
+  // userId is intentionally omitted: the server derives it from the JWT session (C-1 fix)
   async createConversation(
-    userId: string,
     contractorId: number,
     subject?: string
   ): Promise<Conversation> {
     try {
       const conversationData = {
-        userId,
         contractorId,
         subject: subject || "New Conversation",
+        // userId removed: server must derive from session.user.id (C-1)
       };
 
       const response = await api.post("/api/chat/conversations", conversationData);
@@ -414,35 +429,51 @@ class ChatService {
   }
 
   // 17) Reply to an existing conversation (text, location, or time slot message)
+  // sender_id and receiver_id removed: server derives sender from session and receiver from
+  // conversation participants in the database (C-1 + C-2 fix)
   async replyToConversation(
     conversationId: string,
-    senderId: string,
     text: string,
     subject?: string
   ): Promise<ChatMessage> {
+    // M-3 Input validation
+    if (!conversationId || typeof conversationId !== "string" || conversationId.trim().length === 0) {
+      throw new Error("conversationId is required");
+    }
+    if (!text || typeof text !== "string") {
+      throw new Error("Message text is required");
+    }
+    const trimmedText = text.trim();
+    if (trimmedText.length === 0) {
+      throw new Error("Message text cannot be empty");
+    }
+    if (trimmedText.length > 5000) {
+      throw new Error("Message text exceeds 5000 characters");
+    }
+
     const response = await api.post("/api/chat/messages", {
       conversationId,
-      sender_id: senderId,
-      text,
+      text: trimmedText,
       subject: subject || "Reply",
-      // receiver_id is required by the existing route but ignored when conversationId is present
-      receiver_id: "placeholder",
+      // sender_id removed: server derives from session.user.id (C-1)
+      // receiver_id removed: server looks up participant from conversationId (C-2)
     });
     return response.data;
   }
 
   // 18) Approve a time slot (contractor only)
+  // contractorId removed from payload: the server now derives it from the JWT
+  // session and verifies the caller has a confirmed contractor record (C-3 fix).
   async approveTimeSlot(
-    contractorId: number,
     startTime: string,
     endTime: string,
     chatId: string
   ): Promise<{ success: boolean; availabilitySlot?: any; updatedChat?: any; error?: string }> {
     const response = await api.post("/api/chat/timeslot/approve", {
-      contractorId,
       startTime,
       endTime,
       chatId,
+      // contractorId removed: server derives from session.user.id (C-3)
     });
     return response.data;
   }
@@ -512,12 +543,12 @@ export const getConversation = async (
   return await chatService.getConversation(conversationId);
 };
 
+// senderId removed from signature: server now derives it from the JWT session (C-1 fix)
 export const sendMessage = async (
-  senderId: string,
   receiverId: string,
   content: string
 ): Promise<ChatMessage> => {
-  return await chatService.sendMessage(senderId, receiverId, content);
+  return await chatService.sendMessage(receiverId, content);
 };
 
 export const getContactsWithConversations = async (): Promise<Contact[]> => {
@@ -549,18 +580,18 @@ export const getContractorByUserId = (userId: string) =>
   chatService.getContractorByUserId(userId);
 export const getContractorAvailability = (contractorId: number) =>
   chatService.getContractorAvailability(contractorId);
+// senderId removed: server derives from session (C-1 + C-2 fix)
 export const replyToConversation = (
   conversationId: string,
-  senderId: string,
   text: string,
   subject?: string
-) => chatService.replyToConversation(conversationId, senderId, text, subject);
+) => chatService.replyToConversation(conversationId, text, subject);
+// contractorId removed from signature: server derives from session (C-3 fix)
 export const approveTimeSlot = (
-  contractorId: number,
   startTime: string,
   endTime: string,
   chatId: string
-) => chatService.approveTimeSlot(contractorId, startTime, endTime, chatId);
+) => chatService.approveTimeSlot(startTime, endTime, chatId);
 export const getUserAppointments = () => chatService.getUserAppointments();
 
 // Helper function to get contact by ID

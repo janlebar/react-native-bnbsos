@@ -1,5 +1,9 @@
+// M-2 Security fix: this entire module is for development debugging only.
+// It must never be imported or executed in production builds.
+// All exported functions check __DEV__ before running.
 import { chatService } from "../api/chatapi";
 import { useAuth } from "../lib/auth-context";
+import { BASE_URL } from "../constants"; // M-2: use environment-driven URL
 
 export interface DebugInfo {
   authContext: {
@@ -131,19 +135,27 @@ export const useApiDebugger = () => {
   };
 };
 
-// Helper function to test specific API endpoints
+// Helper function to test specific API endpoints (dev only)
 export const testApiEndpoint = async (
   endpoint: string,
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   data?: any
 ) => {
+  // M-2: Guard: this function must only run in development
+  if (!__DEV__) {
+    console.warn("[Security] testApiEndpoint called in non-dev build — blocked.");
+    return { error: "Not available in production" };
+  }
+
   try {
-    const response = await fetch(`http://localhost:3000/api${endpoint}`, {
+    // M-2: Use BASE_URL from constants instead of hardcoded localhost
+    const response = await fetch(`${BASE_URL}/api${endpoint}`, {
       method,
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include", // Important for session cookies
+      // credentials: "include" removed — this would leak cookies to BASE_URL in staging/prod
+      // Use Authorization: Bearer header pattern instead (handled by authapi.tsx interceptors)
       body: data ? JSON.stringify(data) : undefined,
     });
 
@@ -164,8 +176,9 @@ export const testApiEndpoint = async (
   }
 };
 
-// Test specific chat endpoints with detailed logging
+// Test specific chat endpoints with detailed logging (dev only)
 export const testChatEndpoints = async () => {
+  if (!__DEV__) return;
   console.log("=== Testing Chat Endpoints ===");
 
   // Test session endpoint
@@ -232,8 +245,9 @@ export const testChatEndpoints = async () => {
   };
 };
 
-// Common API tests
+// Common API tests (dev only)
 export const runCommonApiTests = async () => {
+  if (!__DEV__) return;
   console.log("Running common API tests...");
 
   // Test session endpoint
