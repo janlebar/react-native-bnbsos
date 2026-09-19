@@ -20,11 +20,17 @@ npm install
 
 ## Step 2: Configure Environment Variables
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root (or copy from `.env.example`):
 
 ```env
-EXPO_PUBLIC_BASE_URL=http://localhost:3000
+EXPO_PUBLIC_BASE_URL=http://192.168.1.100:3000
 EXPO_PUBLIC_SCHEME=myapp
+```
+
+For Expo Go on a physical device (recommended default):
+```env
+EXPO_PUBLIC_BASE_URL=http://YOUR_COMPUTER_IP:3000
+# Example: http://192.168.1.100:3000
 ```
 
 For iOS Simulator with localhost:
@@ -37,10 +43,10 @@ For Android Emulator with localhost:
 EXPO_PUBLIC_BASE_URL=http://10.0.2.2:3000
 ```
 
-For physical device:
-```env
-EXPO_PUBLIC_BASE_URL=http://YOUR_COMPUTER_IP:3000
-# Example: http://192.168.1.100:3000
+After changing `.env`, restart Expo with cache clear so the new env value is loaded:
+
+```bash
+expo start --clear
 ```
 
 ---

@@ -4,8 +4,6 @@
 import { User } from "./types";
 import { api } from "./authapi"; // Import the authenticated axios instance
 
-const API_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
-
 // Types based on Prisma schema
 export interface ChatMessage {
   id: string;

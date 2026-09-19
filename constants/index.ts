@@ -9,6 +9,7 @@
 // Environment Constants
 // H-2 Security fix: fail loudly if EXPO_PUBLIC_BASE_URL is missing or insecure in production.
 const _rawBaseUrl = process.env.EXPO_PUBLIC_BASE_URL;
+const _fallbackBaseUrl = "http://localhost:3000";
 
 if (!_rawBaseUrl && process.env.NODE_ENV === "production") {
   throw new Error(
@@ -25,7 +26,15 @@ if (_rawBaseUrl?.startsWith("http://") && process.env.NODE_ENV === "production")
   );
 }
 
-export const BASE_URL = _rawBaseUrl || "http://localhost:3000";
+if (!_rawBaseUrl && process.env.NODE_ENV !== "production") {
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[Config] EXPO_PUBLIC_BASE_URL is not set. Falling back to http://localhost:3000. " +
+      "For Expo Go on a physical device, set EXPO_PUBLIC_BASE_URL to http://<YOUR_MAC_LAN_IP>:3000."
+  );
+}
+
+export const BASE_URL = _rawBaseUrl || _fallbackBaseUrl;
 export const APP_SCHEME = process.env.EXPO_PUBLIC_SCHEME || "myapp";
 
 // Better Auth Token Constants

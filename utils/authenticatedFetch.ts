@@ -3,9 +3,7 @@
 
 import { getToken, saveToken, saveRefreshToken, deleteTokens } from "./secureStore";
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
-import { Platform } from "react-native";
-
-const BASE_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
+import { BASE_URL } from "../constants";
 
 interface AuthenticatedFetchOptions extends RequestInit {
   skipAuth?: boolean;

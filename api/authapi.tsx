@@ -2,7 +2,6 @@
 // Better Auth Mobile Integration
 
 import axios, { AxiosResponse, AxiosError } from "axios";
-import { Platform } from "react-native";
 import {
   UserCredentials,
   LoginResponse,
@@ -12,12 +11,11 @@ import {
 } from "./types";
 import { saveToken, saveRefreshToken, getToken, getRefreshToken, deleteTokens } from "../utils/secureStore";
 import { logger } from "../utils/logger"; // H-4: dev-gated logger
-
-const API_URL = process.env.EXPO_PUBLIC_BASE_URL || "http://localhost:3000";
+import { BASE_URL } from "../constants";
 
 // Show the actual URL in dev so we can confirm which server is being targeted.
 // Tokens/emails are still never logged — only the base URL.
-logger.debug("🔍 API_URL:", API_URL);
+logger.debug("🔍 API_URL:", BASE_URL);
 
 // Create axios instance with default config for Better Auth.
 // X-Client-Platform is set as a DEFAULT header so it is present on every
@@ -25,7 +23,7 @@ logger.debug("🔍 API_URL:", API_URL);
 // The server reads this header to decide whether to return tokens in the
 // response body (mobile → SecureStore) or set HttpOnly cookies (web).
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: BASE_URL,
   headers: {
     "Content-Type": "application/json",
     // Always "mobile" — Expo is a mobile-first app even when running as web.
