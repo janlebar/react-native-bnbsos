@@ -19,6 +19,7 @@ export type User = {
   role: "USER" | "ADMIN";
   isTwoFactorEnabled: boolean;
   isContractor: boolean; // Extended field
+  contractorId?: number | null; // Numeric contractor id (login response)
   contractor?: ContractorProfile | null; // If user has contractor profile
 };
 

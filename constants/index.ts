@@ -71,13 +71,13 @@ export const API_ENDPOINTS = {
   RESET_PASSWORD_REQUEST: "/api/mobile/auth/reset-password", // POST
   RESET_PASSWORD_COMPLETE: "/api/mobile/auth/reset-password", // PATCH
 
-  // Chat endpoints (to be implemented in Next.js)
-  CONVERSATIONS: "/api/mobile/chat/conversations",
-  CONVERSATION_BY_ID: (id: string) => `/api/mobile/chat/conversations/${id}`,
-  MESSAGES: "/api/mobile/chat/messages",
-  SEND_MESSAGE: "/api/mobile/chat/messages",
+  // Chat endpoints
+  CONVERSATIONS: "/api/chat/conversations",
+  CONVERSATION_BY_ID: (id: string) => `/api/chat/conversations/${id}`,
+  MESSAGES: "/api/chat/messages",
+  SEND_MESSAGE: "/api/chat/messages",
   
-  // Contractor endpoints (to be implemented in Next.js)
+  // Contractor endpoints
   CONTRACTORS: "/api/mobile/contractors",
   CONTRACTOR_BY_ID: (id: number) => `/api/mobile/contractors/${id}`,
 };
@@ -111,7 +111,7 @@ export enum UserRole {
 
 // App Configuration
 export const APP_CONFIG = {
-  name: "BnbSos Native",
+  name: "Behandier",
   scheme: APP_SCHEME,
   baseUrl: BASE_URL,
 };

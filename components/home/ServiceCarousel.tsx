@@ -22,13 +22,22 @@ import PaintingIcon from "../../assets/icons/painting.svg";
 import PersonalShoppingIcon from "../../assets/icons/personal_shopping.svg";
 import PlumbingIcon from "../../assets/icons/plumbing.svg";
 import RoofingIcon from "../../assets/icons/roofing.svg";
-import SnowRemovalIcon from "../../assets/icons/snow_removal.svg";
 import TilingIcon from "../../assets/icons/tiling.svg";
-import TreePruningIcon from "../../assets/icons/tree_pruning.svg";
-import TutoringIcon from "../../assets/icons/tuttoring.svg";
+import TutoringIcon from "../../assets/icons/tutoring.svg";
+import CarpentryIcon from "../../assets/icons/carpentry.svg";
+import GardeningIcon from "../../assets/icons/gardening.svg";
+import ElderlyCareIcon from "../../assets/icons/elderly_care.svg";
+import FoundationIcon from "../../assets/icons/foundation.svg";
+import FacadesIcon from "../../assets/icons/facades.svg";
+import WindowInstallerIcon from "../../assets/icons/window_installer.svg";
+import BuildingDesignIcon from "../../assets/icons/building_design.svg";
+import BlindShutterServicesIcon from "../../assets/icons/blind_shutter_services.svg";
+import CanopyIcon from "../../assets/icons/canopy.svg";
+import OtherIcon from "../../assets/icons/other.svg";
 
-// Map keys to SVG icon components
+// Map keys to SVG icon components (mirrors /api/mobile/contractors/categories)
 const CATEGORY_ICONS: Record<string, React.FC<SvgProps>> = {
+  carpentry: CarpentryIcon,
   car_washing_and_detailing: CarWashingAndDetailingIcon,
   cleaning_services: CleaningServicesIcon,
   electrical_services: ElectricalServicesIcon,
@@ -39,10 +48,17 @@ const CATEGORY_ICONS: Record<string, React.FC<SvgProps>> = {
   personal_shopping: PersonalShoppingIcon,
   plumbing: PlumbingIcon,
   roofing: RoofingIcon,
-  snow_removal: SnowRemovalIcon,
   tiling: TilingIcon,
-  tree_pruning: TreePruningIcon,
+  gardening: GardeningIcon,
   tutoring: TutoringIcon,
+  elderly_care: ElderlyCareIcon,
+  foundation: FoundationIcon,
+  facades: FacadesIcon,
+  window_installer: WindowInstallerIcon,
+  building_design: BuildingDesignIcon,
+  blind_shutter_services: BlindShutterServicesIcon,
+  canopy: CanopyIcon,
+  other: OtherIcon,
 };
 
 // Calculate responsive item width to show 3-4 items at once

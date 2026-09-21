@@ -3,7 +3,20 @@
 
 import { Contractor } from "../types/home";
 
-export type PlacementTier = "CITY_FIRST" | "PROFESSION_FIRST" | "TOP_FIVE";
+export type PlacementTier =
+  | "VERIFIED"
+  | "CITY_FIRST"
+  | "PROFESSION_FIRST"
+  | "TOP_FIVE";
+
+function sortBackgroundImagesFirst(contractors: Contractor[]): Contractor[] {
+  return [...contractors].sort((a, b) => {
+    const aHasBackground = Boolean(a.backgroundImageUrl);
+    const bHasBackground = Boolean(b.backgroundImageUrl);
+    if (aHasBackground === bHasBackground) return 0;
+    return aHasBackground ? -1 : 1;
+  });
+}
 
 /**
  * Applies premium placement logic to a list of contractors
@@ -19,11 +32,13 @@ export function applyPremiumPlacement(
 ): Contractor[] {
   if (!contractors.length) return contractors;
 
-  // Filter contractors with active premium placement
+  // Filter contractors with active premium placement (exclude VERIFIED as it
+  // doesn't affect positioning — matches the web `premium-placement.ts`).
   const premiumContractors = contractors.filter((contractor) => {
     const isActive =
       contractor.premiumPlacement &&
       contractor.placementTier &&
+      contractor.placementTier !== "VERIFIED" &&
       (!contractor.placementExpiresAt ||
         new Date(contractor.placementExpiresAt) > new Date());
 
@@ -144,8 +159,8 @@ export function applyPremiumPlacement(
   });
 
   // Step 3: Fill remaining slots with non-premium contractors
-  const nonPremiumContractors = contractors.filter(
-    (contractor) => !usedContractors.has(contractor.id)
+  const nonPremiumContractors = sortBackgroundImagesFirst(
+    contractors.filter((contractor) => !usedContractors.has(contractor.id))
   );
 
   let nonPremiumIndex = 0;

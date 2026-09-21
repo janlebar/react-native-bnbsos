@@ -88,7 +88,12 @@ export default function MessageInput({
       }
     } catch (err) {
       console.error("[MessageInput] Error:", err);
-      setError("Failed to send message. Please try again.");
+      // Surface the server's message (e.g. first-message contact-info guard).
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Failed to send message. Please try again.";
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -40,6 +40,8 @@ export interface Conversation {
   contractorId: number;
   startedAt: string;
   subject: string | null;
+  requiresLeadsSubscription?: boolean;
+  leadsAgeGateUntil?: string | null;
   Chat: ChatMessage[];
   Contractor: {
     id: number;

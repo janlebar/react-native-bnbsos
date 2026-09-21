@@ -1,13 +1,13 @@
 //app/index.tsx
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
-import Logo from "../assets/logo/BnbSos.svg";
+import Logo from "../assets/logo/Behandier.svg";
 import React, { useState, useEffect } from "react";
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const [typedText, setTypedText] = useState("");
-  const fullText = "Hi there! Let us find a handyman for your BnB!";
+  const fullText = "Hi there! Let us find a vetted contractor for your home!";
 
   useEffect(() => {
     let index = 0;

@@ -4,6 +4,7 @@ import {
   StyleSheet,
   TextInput,
   Text,
+  TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -14,6 +15,8 @@ import FooterMenu, { FOOTER_HEIGHT } from "../user/footerMenu";
 import ServiceCarousel from "../../components/home/ServiceCarousel";
 import ContractorGrid from "../../components/home/ContractorGrid";
 import SortingBar from "../../components/home/SortingBar";
+import LocationPickerModal from "../../components/home/LocationPickerModal";
+import { getLocationDisplayName, getLocationLabel } from "../../lib/locations";
 import { contractorsService } from "../../api/contractorsApi";
 import { Contractor, ServiceCategory, SortOption, SortDirection } from "../../types/home";
 
@@ -35,11 +38,39 @@ export default function Home() {
   const [sortOption, setSortOption] = useState<SortOption>("rating");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [deviceCity, setDeviceCity] = useState<string>("");
+  const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+  const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
+  const [locationPickerVisible, setLocationPickerVisible] = useState(false);
 
   // Resolve user's city: prefer profile city, otherwise device city from expo-location
   const userLocation = useMemo(() => {
     return user?.contractor?.city || deviceCity || "";
   }, [user, deviceCity]);
+
+  // Effective search location: explicit picker selection wins, then device/profile city.
+  const effectiveLocation = useMemo(() => {
+    if (selectedCityId) {
+      return {
+        location: selectedCityId,
+        region: selectedRegionId ?? undefined,
+      };
+    }
+    if (selectedRegionId) {
+      return { location: undefined, region: selectedRegionId };
+    }
+    return { location: userLocation || undefined, region: undefined };
+  }, [selectedCityId, selectedRegionId, userLocation]);
+
+  // Human-readable label for the location selector button.
+  const locationLabel = useMemo(() => {
+    if (selectedCityId && selectedRegionId) {
+      return getLocationLabel(selectedRegionId, selectedCityId);
+    }
+    if (selectedRegionId) {
+      return getLocationLabel(selectedRegionId);
+    }
+    return userLocation ? getLocationDisplayName(userLocation) : "All locations";
+  }, [selectedCityId, selectedRegionId, userLocation]);
 
   // Debounce search query
   useEffect(() => {
@@ -125,7 +156,8 @@ export default function Home() {
 
           const response = await contractorsService.searchContractors({
             q: debouncedQuery,
-            location: userLocation || undefined,
+            location: effectiveLocation.location,
+            region: effectiveLocation.region,
             page: 0,
             limit: 16,
           });
@@ -150,7 +182,8 @@ export default function Home() {
 
           const response = await contractorsService.searchContractors({
             profession: selectedCategory,
-            location: userLocation || undefined,
+            location: effectiveLocation.location,
+            region: effectiveLocation.region,
             page: 0,
             limit: 16,
           });
@@ -174,7 +207,7 @@ export default function Home() {
     };
 
     loadContractors();
-  }, [debouncedQuery, selectedCategory, userLocation, sortOption]);
+  }, [debouncedQuery, selectedCategory, effectiveLocation, sortOption]);
 
   // Load more contractors
   const handleLoadMore = useCallback(async () => {
@@ -188,7 +221,8 @@ export default function Home() {
         // Text search pagination
         const response = await contractorsService.searchContractors({
           q: debouncedQuery,
-          location: userLocation || undefined,
+          location: effectiveLocation.location,
+          region: effectiveLocation.region,
           page: nextPage,
           limit: 16,
         });
@@ -198,7 +232,8 @@ export default function Home() {
         // Category pagination - /search with profession filter
         const response = await contractorsService.searchContractors({
           profession: selectedCategory,
-          location: userLocation || undefined,
+          location: effectiveLocation.location,
+          region: effectiveLocation.region,
           page: nextPage,
           limit: 16,
         });
@@ -220,7 +255,7 @@ export default function Home() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [page, hasMore, isLoadingMore, debouncedQuery, selectedCategory, sortOption, userLocation]);
+  }, [page, hasMore, isLoadingMore, debouncedQuery, selectedCategory, sortOption, effectiveLocation]);
 
   // Handle contractor press - navigate to detail
   const handleContractorPress = useCallback(
@@ -256,6 +291,14 @@ export default function Home() {
             onChangeText={setSearchQuery}
             placeholderTextColor="#9ca3af"
           />
+          <TouchableOpacity
+            style={styles.locationButton}
+            onPress={() => setLocationPickerVisible(true)}
+          >
+            <Text style={styles.locationButtonText} numberOfLines={1}>
+              📍 {locationLabel}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* 🩷 PINK = ServiceCarousel wrapper (conditional View) */}
@@ -299,6 +342,21 @@ export default function Home() {
 
         {/* Footer Menu - Always at bottom */}
         <FooterMenu />
+
+        <LocationPickerModal
+          visible={locationPickerVisible}
+          selectedRegionId={selectedRegionId}
+          selectedCityId={selectedCityId}
+          onSelect={(regionId, cityId) => {
+            setSelectedRegionId(regionId);
+            setSelectedCityId(cityId);
+          }}
+          onClear={() => {
+            setSelectedRegionId(null);
+            setSelectedCityId(null);
+          }}
+          onClose={() => setLocationPickerVisible(false)}
+        />
       </View>
     </SafeAreaView>
   );
@@ -342,5 +400,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: "#1f2937",
+  },
+  locationButton: {
+    marginTop: 8,
+    paddingVertical: 8,
+  },
+  locationButtonText: {
+    fontSize: 14,
+    color: "#3b82f6",
+    fontWeight: "600",
   },
 });
