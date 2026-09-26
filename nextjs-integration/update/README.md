@@ -22,6 +22,8 @@ only visible branding changes.
 | 6 | Profile & settings (`isOAuth`) | ✅ done (already aligned) |
 | 7 | Static content (privacy/terms) | ⏭ skipped (web-only) |
 | 8 | Cleanup + typecheck/lint + final status | ✅ done |
+| 9 | Search parity with Next.js header | ✅ done |
+| 10 | OAuth login rewrite (Better Auth social + JWT bridge) | ✅ done |
 
 ## Part documents
 
@@ -33,15 +35,24 @@ only visible branding changes.
 - `part-05-data-model.md`
 - `part-06-profile-settings.md`
 - `part-08-cleanup.md`
+- `part-09-search.md`
+- `part-10-oauth.md`
+
+## Backend (Next.js) changes made as part of this sync
+
+- `app/api/mobile/contractors/available-locations/route.ts` (NEW) — regions/cities
+  that have visible contractors; powers the RN location picker (Part 9).
 
 ## Outstanding follow-ups
 
-1. **OAuth login rewrite** — `OAuthButtons.tsx`/`lib/auth.ts` still use removed
-   legacy endpoints; migrate to Better Auth `signIn.social` +
-   `POST /api/mobile/auth/social/token` (see part-04 / part-08).
-2. 5 pre-existing `tsc` errors (ChatLayout, SchedulePlanner, `lib/auth.ts`,
-   `debugScript.tsx`) — unrelated to this sync, listed in part-08.
+1. **OAuth**: rewrite complete on the Expo side (Part 10). Verify at runtime with
+   `EXPO_SCHEME=myapp` on the backend and Google/Facebook redirect URIs configured
+   for `https://behandier.com/api/auth/callback/{google,facebook}`.
+2. 4 pre-existing `tsc` errors (ChatLayout, SchedulePlanner, `debugScript.tsx`) —
+   unrelated to this sync, listed in part-08.
 3. Placeholder artwork for the 10 new category icons.
+4. Optional: remove unused `components/BetterAuthLoginForm.tsx` (still references
+   GitHub) in a future cleanup pass.
 
 ## Key references
 

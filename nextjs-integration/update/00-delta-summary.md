@@ -56,3 +56,16 @@ facades, window_installer, building_design, blind_shutter_services, canopy, othe
 - `/api/chat/*`, `/api/mobile/contractors/{list,search,categories,[id]}`,
   `/api/mobile/profile/*`, `/api/mobile/contractor/*`, `/api/user/appointments`,
   `/api/contractors/by-user/*`, `/api/contractors/[id]/availability`.
+
+## Round 2 additions (Parts 9–10)
+
+- **Search parity** (Part 9): web header search uses query + a region/city
+  combobox limited to locations that have contractors, geo-detected fallback, and
+  400ms debounce. RN now mirrors this via a new backend endpoint
+  `GET /api/mobile/contractors/available-locations`, `lib/locations.ts` geo
+  resolution (`COUNTRY_TO_REGION`, `resolveDetectedLocation`, `getFilteredRegions`),
+  and a reworked `home.tsx` (`availableRegions`, detected region+city slugs).
+- **OAuth** (Part 10): backend now exposes `POST /api/mobile/auth/social/token`
+  (Better Auth social session → mobile JWT). RN `lib/auth.ts` was rewritten to
+  `authClient.signIn.social` + that bridge; providers are **Google + Facebook**
+  (Apple/GitHub are not configured server-side).

@@ -11,6 +11,7 @@ import {
   ContractorSearchParams,
   SortOption,
 } from "../types/home";
+import type { Region } from "../lib/locations";
 
 class ContractorsService {
   /**
@@ -166,6 +167,26 @@ class ContractorsService {
         throw new Error(error.response.data.error);
       }
       throw new Error("Failed to fetch categories");
+    }
+  }
+
+  /**
+   * Fetch regions/cities that actually have visible contractors.
+   * Mirrors the web `getLocationsWithContractors()` server action so the mobile
+   * location picker only offers locations with results.
+   */
+  async fetchAvailableLocations(): Promise<Region[]> {
+    try {
+      const response = await api.get<Region[]>(
+        `/api/mobile/contractors/available-locations`
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error("Error fetching available locations:", error);
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      }
+      throw new Error("Failed to fetch available locations");
     }
   }
 }

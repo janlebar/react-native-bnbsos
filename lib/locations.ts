@@ -286,3 +286,88 @@ export const getCityOptionsByRegion = (regionId: string) => {
     ? region.cities.map((city) => ({ value: city.id, label: city.name }))
     : [];
 };
+
+// ISO 3166-1 alpha-2 country code → region id (mirrors the web
+// `components/header/components/SearchStateContext.tsx` COUNTRY_TO_REGION map).
+export const COUNTRY_TO_REGION: Record<string, string> = {
+  AT: "austria",
+  AU: "australia",
+  CA: "canada",
+  IE: "ireland",
+  PL: "poland",
+  SI: "slovenia",
+  DE: "germany",
+  FR: "france",
+  ES: "spain",
+  IT: "italy",
+  GB: "united_kingdom",
+  UK: "united_kingdom",
+};
+
+export interface DetectedLocation {
+  regionId: string;
+  cityId: string;
+}
+
+/**
+ * Resolve a device/geo location ({ city, country }) to a supported region+city.
+ * `country` must be an ISO-3166 alpha-2 code. Falls back to the region's first
+ * city when the detected city is not in our supported list. Mirrors the web
+ * `resolveDetectedLocation`.
+ */
+export function resolveDetectedLocation(data: {
+  city?: string | null;
+  country?: string | null;
+}): DetectedLocation | null {
+  const regionId = data.country
+    ? COUNTRY_TO_REGION[data.country.toUpperCase()]
+    : undefined;
+
+  if (!regionId) return null;
+
+  const region = europeanRegions.find((entry) => entry.id === regionId);
+  if (!region || region.cities.length === 0) return null;
+
+  const normalizedCity = data.city ? normalizeToken(data.city) : undefined;
+  const matchingCity = normalizedCity
+    ? region.cities.find(
+        (city) =>
+          normalizeToken(city.name) === normalizedCity ||
+          normalizeToken(city.id) === normalizedCity
+      )
+    : undefined;
+
+  return {
+    regionId: region.id,
+    cityId: matchingCity?.id || region.cities[0].id,
+  };
+}
+
+/**
+ * Filter regions/cities by a free-text query (accent-insensitive), mirroring the
+ * web `LocationCombobox` getFilteredRegions. A country match keeps all its cities.
+ */
+export function getFilteredRegions(
+  query: string,
+  baseRegions: Region[] = europeanRegions
+): Region[] {
+  const normalizedQuery = normalizeToken(query);
+  if (!normalizedQuery) return baseRegions;
+
+  return baseRegions
+    .map((region) => {
+      const countryMatches = normalizeToken(region.name).includes(
+        normalizedQuery
+      );
+      const matchingCities = countryMatches
+        ? region.cities
+        : region.cities.filter((city) =>
+            normalizeToken(city.name).includes(normalizedQuery)
+          );
+
+      return matchingCities.length > 0
+        ? { ...region, cities: matchingCities }
+        : null;
+    })
+    .filter((region): region is Region => Boolean(region));
+}

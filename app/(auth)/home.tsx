@@ -16,12 +16,18 @@ import ServiceCarousel from "../../components/home/ServiceCarousel";
 import ContractorGrid from "../../components/home/ContractorGrid";
 import SortingBar from "../../components/home/SortingBar";
 import LocationPickerModal from "../../components/home/LocationPickerModal";
-import { getLocationDisplayName, getLocationLabel } from "../../lib/locations";
+import {
+  europeanRegions,
+  getLocationLabel,
+  resolveDetectedLocation,
+  type DetectedLocation,
+  type Region,
+} from "../../lib/locations";
 import { contractorsService } from "../../api/contractorsApi";
 import { Contractor, ServiceCategory, SortOption, SortDirection } from "../../types/home";
 
 export default function Home() {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const router = useRouter();
   const isSignedIn = isAuthenticated;
 
@@ -37,17 +43,19 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sortOption, setSortOption] = useState<SortOption>("rating");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [deviceCity, setDeviceCity] = useState<string>("");
   const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
   const [locationPickerVisible, setLocationPickerVisible] = useState(false);
+  // Regions/cities that actually have contractors (mirrors web LocationCombobox)
+  const [availableRegions, setAvailableRegions] =
+    useState<Region[]>(europeanRegions);
+  const [locationsLoaded, setLocationsLoaded] = useState(false);
+  // Geo-detected location (country → region, city name match, else first city)
+  const [detectedLocation, setDetectedLocation] =
+    useState<DetectedLocation | null>(null);
 
-  // Resolve user's city: prefer profile city, otherwise device city from expo-location
-  const userLocation = useMemo(() => {
-    return user?.contractor?.city || deviceCity || "";
-  }, [user, deviceCity]);
-
-  // Effective search location: explicit picker selection wins, then device/profile city.
+  // Effective search location: explicit picker selection wins, then the
+  // geo-detected location (mirrors web `applyDetectedLocation`).
   const effectiveLocation = useMemo(() => {
     if (selectedCityId) {
       return {
@@ -58,8 +66,14 @@ export default function Home() {
     if (selectedRegionId) {
       return { location: undefined, region: selectedRegionId };
     }
-    return { location: userLocation || undefined, region: undefined };
-  }, [selectedCityId, selectedRegionId, userLocation]);
+    if (detectedLocation) {
+      return {
+        location: detectedLocation.cityId,
+        region: detectedLocation.regionId,
+      };
+    }
+    return { location: undefined, region: undefined };
+  }, [selectedCityId, selectedRegionId, detectedLocation]);
 
   // Human-readable label for the location selector button.
   const locationLabel = useMemo(() => {
@@ -69,8 +83,18 @@ export default function Home() {
     if (selectedRegionId) {
       return getLocationLabel(selectedRegionId);
     }
-    return userLocation ? getLocationDisplayName(userLocation) : "All locations";
-  }, [selectedCityId, selectedRegionId, userLocation]);
+    if (detectedLocation) {
+      return getLocationLabel(
+        detectedLocation.regionId,
+        detectedLocation.cityId
+      );
+    }
+    return "All locations";
+  }, [selectedCityId, selectedRegionId, detectedLocation]);
+
+  // A user-selected location/region puts the home screen into search mode
+  // (web parity: HomeClient treats `location || region` as an active search).
+  const hasExplicitLocation = !!(selectedCityId || selectedRegionId);
 
   // Debounce search query
   useEffect(() => {
@@ -80,7 +104,9 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Detect device location once and derive a city name
+  // Detect device location once and resolve it to a supported region/city.
+  // Mirrors web `resolveDetectedLocation` (country → region, city name match,
+  // else first city in the region).
   useEffect(() => {
     const detectLocation = async () => {
       try {
@@ -95,35 +121,56 @@ export default function Home() {
         const position = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
-        console.log("[Home] Raw position from getCurrentPositionAsync:", position);
 
         const places = await Location.reverseGeocodeAsync({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         });
-        console.log("[Home] reverseGeocodeAsync result:", places);
 
         const [place] = places;
+        const resolved = resolveDetectedLocation({
+          city: place?.city || place?.subregion || place?.region || null,
+          country: place?.isoCountryCode || place?.country || null,
+        });
 
-        const city =
-          place?.city || place?.subregion || place?.region || place?.country || "";
-
-        if (city) {
-          console.log("[Home] Detected device city:", city);
-          setDeviceCity(city);
+        if (resolved) {
+          console.log("[Home] Resolved detected location:", resolved);
+          setDetectedLocation(resolved);
         } else {
-          console.warn("[Home] Could not resolve city from reverse geocode result");
+          console.warn(
+            "[Home] Could not resolve a supported region from geocode result"
+          );
         }
       } catch (error) {
         console.error("[Home] Failed to detect device location:", error);
       }
     };
 
-    // Only try to detect location if we don't already have a profile city
-    if (!user?.contractor?.city) {
-      detectLocation();
-    }
-  }, [user]);
+    detectLocation();
+  }, []);
+
+  // Load regions/cities that actually have contractors (web parity).
+  useEffect(() => {
+    let cancelled = false;
+    const loadLocations = async () => {
+      try {
+        const regions = await contractorsService.fetchAvailableLocations();
+        if (!cancelled) {
+          setAvailableRegions(
+            regions.length > 0 ? regions : europeanRegions
+          );
+        }
+      } catch (error) {
+        console.error("Error loading available locations:", error);
+      } finally {
+        if (!cancelled) setLocationsLoaded(true);
+      }
+    };
+    loadLocations();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Load categories on mount
   useEffect(() => {
@@ -150,7 +197,9 @@ export default function Home() {
           // Text search mode - use /search endpoint with q (works today)
           console.log(
             `[Home] Text search q="${debouncedQuery}"${
-              userLocation ? ` in "${userLocation}"` : ""
+              effectiveLocation.location
+                ? ` in "${effectiveLocation.location}"`
+                : ""
             }`
           );
 
@@ -170,13 +219,10 @@ export default function Home() {
         } else if (selectedCategory) {
           // Category mode - use /search endpoint with profession filter
           console.log(
-            `[Home] Location debug → profileCity="${user?.contractor?.city ?? "(none)"}", deviceCity="${
-              deviceCity || "(none)"
-            }", userLocation="${userLocation || "(none)"}"`
-          );
-          console.log(
             `[Home] Category search profession="${selectedCategory}"${
-              userLocation ? ` in "${userLocation}"` : " (no location filter)"
+              effectiveLocation.location || effectiveLocation.region
+                ? ` in "${effectiveLocation.location ?? effectiveLocation.region}"`
+                : " (no location filter)"
             }`
           );
 
@@ -193,6 +239,23 @@ export default function Home() {
           console.log(
             `[Home] Loaded ${response.contractors.length} contractors from category search (total: ${response.total})`
           );
+        } else if (hasExplicitLocation) {
+          // Location-only mode - search by the selected region/city (web parity)
+          console.log(
+            `[Home] Location-only search in "${
+              effectiveLocation.location ?? effectiveLocation.region
+            }"`
+          );
+
+          const response = await contractorsService.searchContractors({
+            location: effectiveLocation.location,
+            region: effectiveLocation.region,
+            page: 0,
+            limit: 16,
+          });
+
+          setContractors(response.contractors);
+          setHasMore(response.hasMore);
         } else {
           // Default list mode
           const response = await contractorsService.fetchContractors(0, 16, sortOption);
@@ -207,7 +270,13 @@ export default function Home() {
     };
 
     loadContractors();
-  }, [debouncedQuery, selectedCategory, effectiveLocation, sortOption]);
+  }, [
+    debouncedQuery,
+    selectedCategory,
+    hasExplicitLocation,
+    effectiveLocation,
+    sortOption,
+  ]);
 
   // Load more contractors
   const handleLoadMore = useCallback(async () => {
@@ -239,6 +308,16 @@ export default function Home() {
         });
         setContractors((prev) => [...prev, ...response.contractors]);
         setHasMore(response.hasMore);
+      } else if (hasExplicitLocation) {
+        // Location-only pagination
+        const response = await contractorsService.searchContractors({
+          location: effectiveLocation.location,
+          region: effectiveLocation.region,
+          page: nextPage,
+          limit: 16,
+        });
+        setContractors((prev) => [...prev, ...response.contractors]);
+        setHasMore(response.hasMore);
       } else {
         // Default list mode
         const response = await contractorsService.fetchContractors(
@@ -255,7 +334,7 @@ export default function Home() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [page, hasMore, isLoadingMore, debouncedQuery, selectedCategory, sortOption, effectiveLocation]);
+  }, [page, hasMore, isLoadingMore, debouncedQuery, selectedCategory, hasExplicitLocation, sortOption, effectiveLocation]);
 
   // Handle contractor press - navigate to detail
   const handleContractorPress = useCallback(
@@ -270,7 +349,7 @@ export default function Home() {
     return selectedCategory ? [selectedCategory] : undefined;
   }, [selectedCategory]);
 
-  const showSortingBar = debouncedQuery || selectedCategory;
+  const showSortingBar = debouncedQuery || selectedCategory || hasExplicitLocation;
 
   return (
     // 🔵 BLUE = SafeAreaView
@@ -347,6 +426,8 @@ export default function Home() {
           visible={locationPickerVisible}
           selectedRegionId={selectedRegionId}
           selectedCityId={selectedCityId}
+          regions={availableRegions}
+          loading={!locationsLoaded}
           onSelect={(regionId, cityId) => {
             setSelectedRegionId(regionId);
             setSelectedCityId(cityId);

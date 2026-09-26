@@ -89,7 +89,8 @@ export const STORAGE_KEYS = {
   USER_DATA: "better_auth_user_data",
 };
 
-// OAuth Providers (for Better Auth)
+// OAuth Providers (for Better Auth) — must match the backend socialProviders
+// (google + facebook; GitHub/Apple are not configured server-side).
 export const OAUTH_PROVIDERS = [
   {
     id: "google",
@@ -97,8 +98,8 @@ export const OAUTH_PROVIDERS = [
     authUrl: `${BASE_URL}/api/auth/sign-in/social`,
   },
   {
-    id: "github",
-    name: "GitHub",
+    id: "facebook",
+    name: "Facebook",
     authUrl: `${BASE_URL}/api/auth/sign-in/social`,
   },
 ];

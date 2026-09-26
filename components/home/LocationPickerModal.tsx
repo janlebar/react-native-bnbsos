@@ -7,14 +7,23 @@ import {
   TextInput,
   FlatList,
   TouchableOpacity,
+  ActivityIndicator,
   StyleSheet,
 } from "react-native";
-import { europeanRegions, normalizeToken } from "../../lib/locations";
+import {
+  europeanRegions,
+  getFilteredRegions,
+  type Region,
+} from "../../lib/locations";
 
 interface Props {
   visible: boolean;
   selectedRegionId: string | null;
   selectedCityId: string | null;
+  /** Regions that actually have contractors (from the backend). */
+  regions?: Region[];
+  /** True while available regions are still loading. */
+  loading?: boolean;
   onSelect: (regionId: string, cityId: string | null) => void;
   onClear: () => void;
   onClose: () => void;
@@ -33,6 +42,8 @@ export default function LocationPickerModal({
   visible,
   selectedRegionId,
   selectedCityId,
+  regions = europeanRegions,
+  loading = false,
   onSelect,
   onClear,
   onClose,
@@ -43,40 +54,35 @@ export default function LocationPickerModal({
   );
 
   const rows = useMemo<Row[]>(() => {
-    const q = normalizeToken(query);
-    if (q) {
-      const matches: Row[] = [];
-      europeanRegions.forEach((region) => {
-        if (normalizeToken(region.name).includes(q)) {
-          matches.push({
-            key: `region-${region.id}`,
-            type: "region",
-            regionId: region.id,
-            label: region.name,
-            sublabel: "Region",
-          });
-        }
+    const hasQuery = query.trim().length > 0;
+    const filtered = getFilteredRegions(query, regions);
+
+    if (hasQuery) {
+      const flat: Row[] = [];
+      filtered.forEach((region) => {
+        flat.push({
+          key: `region-${region.id}`,
+          type: "region",
+          regionId: region.id,
+          label: region.name,
+          sublabel: "Region",
+        });
         region.cities.forEach((city) => {
-          if (
-            normalizeToken(city.name).includes(q) ||
-            normalizeToken(region.name).includes(q)
-          ) {
-            matches.push({
-              key: `city-${region.id}-${city.id}`,
-              type: "city",
-              regionId: region.id,
-              cityId: city.id,
-              label: city.name,
-              sublabel: region.name,
-            });
-          }
+          flat.push({
+            key: `city-${region.id}-${city.id}`,
+            type: "city",
+            regionId: region.id,
+            cityId: city.id,
+            label: city.name,
+            sublabel: region.name,
+          });
         });
       });
-      return matches;
+      return flat;
     }
 
     const grouped: Row[] = [];
-    europeanRegions.forEach((region) => {
+    filtered.forEach((region) => {
       grouped.push({
         key: `region-${region.id}`,
         type: "region",
@@ -97,7 +103,7 @@ export default function LocationPickerModal({
       }
     });
     return grouped;
-  }, [query, expandedRegionId]);
+  }, [query, expandedRegionId, regions]);
 
   const isSelected = (row: Row) =>
     row.type === "city"
@@ -130,58 +136,77 @@ export default function LocationPickerModal({
           />
 
           <TouchableOpacity style={styles.clearRow} onPress={onClear}>
-            <Text style={styles.clearText}>
-              {selectedRegionId || selectedCityId
-                ? "Use my current location"
-                : "Use my current location"}
-            </Text>
+            <Text style={styles.clearText}>Use my current location</Text>
           </TouchableOpacity>
 
-          <FlatList
-            data={rows}
-            keyExtractor={(item) => item.key}
-            keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) =>
-              item.type === "region" ? (
-                <TouchableOpacity
-                  style={[styles.row, isSelected(item) && styles.rowSelected]}
-                  onPress={() => {
-                    if (query) {
-                      onSelect(item.regionId, null);
+          {loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color="#3b82f6" />
+              <Text style={styles.loadingText}>Loading locations…</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={rows}
+              keyExtractor={(item) => item.key}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>No locations found</Text>
+              }
+              renderItem={({ item }) =>
+                item.type === "region" ? (
+                  <View
+                    style={[styles.row, isSelected(item) && styles.rowSelected]}
+                  >
+                    {/* Tapping the region selects the whole region (web parity) */}
+                    <TouchableOpacity
+                      style={styles.regionLabelArea}
+                      onPress={() => {
+                        onSelect(item.regionId, null);
+                        onClose();
+                      }}
+                    >
+                      <Text style={styles.rowLabel}>{item.label}</Text>
+                      {item.sublabel ? (
+                        <Text style={styles.rowSub}>{item.sublabel}</Text>
+                      ) : null}
+                    </TouchableOpacity>
+                    {/* Chevron browses the region's cities (hidden while searching) */}
+                    {!query.trim() && (
+                      <TouchableOpacity
+                        hitSlop={8}
+                        style={styles.chevronButton}
+                        onPress={() =>
+                          setExpandedRegionId((prev) =>
+                            prev === item.regionId ? null : item.regionId
+                          )
+                        }
+                      >
+                        <Text style={styles.chevron}>
+                          {expandedRegionId === item.regionId ? "▾" : "▸"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.cityRow,
+                      isSelected(item) && styles.rowSelected,
+                    ]}
+                    onPress={() => {
+                      onSelect(item.regionId, item.cityId ?? null);
                       onClose();
-                    } else {
-                      setExpandedRegionId((prev) =>
-                        prev === item.regionId ? null : item.regionId
-                      );
-                    }
-                  }}
-                >
-                  <View style={{ flex: 1 }}>
+                    }}
+                  >
                     <Text style={styles.rowLabel}>{item.label}</Text>
                     {item.sublabel ? (
                       <Text style={styles.rowSub}>{item.sublabel}</Text>
                     ) : null}
-                  </View>
-                  <Text style={styles.chevron}>
-                    {query || expandedRegionId === item.regionId ? "▾" : "▸"}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.cityRow, isSelected(item) && styles.rowSelected]}
-                  onPress={() => {
-                    onSelect(item.regionId, item.cityId ?? null);
-                    onClose();
-                  }}
-                >
-                  <Text style={styles.rowLabel}>{item.label}</Text>
-                  {item.sublabel ? (
-                    <Text style={styles.rowSub}>{item.sublabel}</Text>
-                  ) : null}
-                </TouchableOpacity>
-              )
-            }
-          />
+                  </TouchableOpacity>
+                )
+              }
+            />
+          )}
         </View>
       </View>
     </Modal>
@@ -237,6 +262,21 @@ const styles = StyleSheet.create({
     color: "#3b82f6",
     fontWeight: "600",
   },
+  loadingBox: {
+    paddingVertical: 40,
+    alignItems: "center",
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#6b7280",
+  },
+  emptyText: {
+    textAlign: "center",
+    color: "#6b7280",
+    paddingVertical: 32,
+    fontSize: 14,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -256,6 +296,13 @@ const styles = StyleSheet.create({
   },
   rowSelected: {
     backgroundColor: "#eff6ff",
+  },
+  regionLabelArea: {
+    flex: 1,
+  },
+  chevronButton: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
   },
   rowLabel: {
     fontSize: 15,

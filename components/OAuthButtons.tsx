@@ -18,7 +18,7 @@ interface OAuthProvider {
 
 const OAUTH_PROVIDERS: OAuthProvider[] = [
   { id: "google", name: "Google" },
-  { id: "apple", name: "Apple" },
+  { id: "facebook", name: "Facebook" },
 ];
 
 export default function OAuthButtons({

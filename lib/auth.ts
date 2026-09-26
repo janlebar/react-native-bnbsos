@@ -1,9 +1,12 @@
 import { authService, getCurrentUser } from "../api/authapi";
 import { User } from "../api/types";
-import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
-import * as Crypto from "expo-crypto";
 import { APP_SCHEME, BASE_URL } from "../constants";
+import { authClient } from "./auth-client";
+import {
+  saveToken as persistToken,
+  saveRefreshToken as persistRefreshToken,
+} from "../utils/secureStore";
 
 // Complete the auth session for web browsers
 WebBrowser.maybeCompleteAuthSession();
@@ -69,113 +72,65 @@ export class AuthManager {
   }
 
   // OAuth Authentication Methods
+  //
+  // Uses the Better Auth `@better-auth/expo` client to run the provider consent
+  // flow, then exchanges the resulting Better Auth session cookie for the custom
+  // mobile JWT pair via `POST /api/mobile/auth/social/token` (same response shape
+  // as `/api/mobile/auth/login`). This replaces the removed legacy endpoints
+  // `/api/auth/mobile/signin/[provider]` and `/api/auth/token`.
   static async signInWithOAuth(provider: string): Promise<User> {
     try {
-      // Configure the redirect URI for your app
-      const redirectUri = AuthSession.makeRedirectUri({
-        scheme: "nativebnbsos",
-        path: "auth",
+      // 1. Run the Better Auth OAuth flow. The expo client opens the provider
+      //    consent screen and stores the session cookie in SecureStore.
+      const callbackURL = `${APP_SCHEME}://home`;
+      const result: any = await authClient.signIn.social({
+        provider: provider as any,
+        callbackURL,
       });
 
-      console.log("Redirect URI:", redirectUri);
-
-      // Generate state parameter for CSRF protection using a cryptographically
-      // secure random source. Math.random() is NOT cryptographically secure
-      // and must not be used here (H-3 fix).
-      const randomBytes = await Crypto.getRandomBytesAsync(32);
-      const state = Array.from(randomBytes)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
-
-      // Build the authorization URL that will redirect to your Next.js backend
-      const authUrl = new URL(`${BASE_URL}/api/auth/mobile/signin/${provider}`);
-      authUrl.searchParams.set("state", state);
-      authUrl.searchParams.set("redirectUri", redirectUri);
-      authUrl.searchParams.set("client_id", provider);
-      authUrl.searchParams.set("scope", "openid profile email");
-
-      console.log("Auth URL:", authUrl.toString());
-
-      // Open the OAuth flow in browser
-      const result = await WebBrowser.openAuthSessionAsync(
-        authUrl.toString(),
-        redirectUri,
-        {
-          showInRecents: false,
-        }
-      );
-
-      console.log("OAuth result:", result);
-
-      if (result.type === "success" && result.url) {
-        // Parse the callback URL
-        const url = new URL(result.url);
-        const success = url.searchParams.get("success");
-        const sessionToken = url.searchParams.get("sessionToken");
-        const error = url.searchParams.get("error");
-        const code = url.searchParams.get("code");
-
-        if (error) {
-          throw new Error(url.searchParams.get("error_description") || error);
-        }
-
-        if (success === "true" && sessionToken) {
-          // Verify the session with your backend
-          const authResponse = await authService.verifyMobileSession(
-            sessionToken
-          );
-          if (authResponse.success) {
-            return authResponse.user;
-          }
-          throw new Error("Session verification failed");
-        }
-
-        if (code) {
-          // Exchange the authorization code for a token
-          const tokenResponse = await this.exchangeCodeForToken(code, provider);
-          return tokenResponse.user;
-        }
-
-        throw new Error(
-          "OAuth flow completed but no session token or code received"
-        );
-      } else if (result.type === "cancel") {
-        throw new Error("OAuth flow was cancelled");
-      } else {
-        throw new Error("OAuth flow failed");
+      if (result?.error) {
+        throw new Error(result.error.message || "OAuth sign-in failed");
       }
-    } catch (error: any) {
-      console.error("OAuth error:", error);
-      throw new Error(error.message || "OAuth authentication failed");
-    }
-  }
 
-  private static async exchangeCodeForToken(
-    code: string,
-    provider: string
-  ): Promise<{ user: User }> {
-    try {
-      const response = await fetch(`${BASE_URL}/api/auth/token`, {
+      // 2. Read the stored Better Auth cookie and exchange it for mobile tokens.
+      const cookie =
+        typeof (authClient as any).getCookie === "function"
+          ? (authClient as any).getCookie()
+          : "";
+
+      const response = await fetch(`${BASE_URL}/api/mobile/auth/social/token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-Client-Platform": "mobile",
+          ...(cookie ? { Cookie: cookie } : {}),
         },
-        body: JSON.stringify({
-          code,
-          provider,
-        }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
-        throw new Error(data.error || "Token exchange failed");
+      if (!response.ok || !data?.token) {
+        throw new Error(
+          data?.error || "Failed to exchange OAuth session for token"
+        );
       }
 
-      return { user: data.user };
+      // 3. Persist tokens exactly like email/password login.
+      await persistToken(data.token);
+      if (data.refreshToken) {
+        await persistRefreshToken(data.refreshToken);
+      }
+
+      return {
+        ...data.user,
+        isContractor:
+          typeof data.user?.isContractor === "boolean"
+            ? data.user.isContractor
+            : !!data.user?.contractor,
+      } as User;
     } catch (error: any) {
-      console.error("Token exchange error:", error);
-      throw new Error(error.message || "Failed to exchange code for token");
+      console.error("OAuth error:", error);
+      throw new Error(error.message || "OAuth authentication failed");
     }
   }
 }
