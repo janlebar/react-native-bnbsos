@@ -19,6 +19,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { contractorsService } from "../../../api/contractorsApi";
 import { ContractorDetail, Review } from "../../../types/home";
 import { useAuth } from "../../../lib/auth-context";
+import FavoriteButton from "../../../components/FavoriteButton";
 
 const { width } = Dimensions.get("window");
 
@@ -256,6 +257,13 @@ export default function ContractorDetailScreen() {
           >
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
+
+          {/* Favorite button */}
+          <FavoriteButton
+            contractorId={contractor.id}
+            size="lg"
+            style={styles.heroFavorite}
+          />
 
           {/* Avatar */}
           <View style={styles.heroAvatarContainer}>
@@ -505,6 +513,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 6,
+    zIndex: 10,
+  },
+  heroFavorite: {
+    position: "absolute",
+    top: 12,
+    right: 16,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    borderRadius: 24,
+    width: 48,
+    height: 48,
     zIndex: 10,
   },
   backButtonText: {

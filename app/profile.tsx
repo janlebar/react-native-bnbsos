@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -14,14 +14,23 @@ import ChevronRightIcon from "../assets/icons/chevron_right.svg";
 import FooterMenu, { FOOTER_HEIGHT } from "./user/footerMenu";
 import { RoleSwitchButton } from "../components/RoleSwitchButton";
 
-const links = [
-  { href: "/settings", title: "Account Settings" },
-  { href: "/contractor", title: "Contractor Settings" },
-];
-
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
+
+  // Favorites are only shown to non-contractor accounts (web parity).
+  // Schedule is shown to both roles (the screen is role-aware).
+  const links = useMemo(() => {
+    const items = [
+      { href: "/settings", title: "Account Settings" },
+      { href: "/contractor", title: "Contractor Settings" },
+    ];
+    if (!user?.isContractor) {
+      items.splice(1, 0, { href: "/favorites", title: "Favorites" });
+    }
+    items.push({ href: "/schedule", title: "Schedule" });
+    return items;
+  }, [user?.isContractor]);
 
   const handlePress = (href: string) => {
     router.push(href);
@@ -60,6 +69,10 @@ export default function ProfileScreen() {
                   height={24}
                   style={styles.icon}
                 />
+              ) : link.href === "/favorites" ? (
+                <Text style={styles.emoji}>❤️</Text>
+              ) : link.href === "/schedule" ? (
+                <Text style={styles.emoji}>📅</Text>
               ) : (
                 <Text style={styles.emoji}>🔗</Text>
               )}

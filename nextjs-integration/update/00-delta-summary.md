@@ -69,3 +69,27 @@ facades, window_installer, building_design, blind_shutter_services, canopy, othe
   (Better Auth social session → mobile JWT). RN `lib/auth.ts` was rewritten to
   `authClient.signIn.social` + that bridge; providers are **Google + Facebook**
   (Apple/GitHub are not configured server-side).
+
+## Round 3 additions (Part 11)
+
+- **Favorites** (Part 11): web has `Favorite` model + `actions/favorites.ts` +
+  `/favorites` page + heart button. RN gains new mobile endpoints
+  (`GET/POST /api/mobile/favorites`, `DELETE /api/mobile/favorites/[contractorId]`),
+  a `FavoritesProvider`/`useFavorites` context, a `FavoriteButton`, a `/favorites`
+  screen, and a profile link (non-contractor only, web parity).
+
+## Round 4 additions (Part 12)
+
+- **Carousel** (Part 12): web `mainCarousel.tsx` (embla, loop, 4s auto-advance,
+  hover-pause) informed the RN `ServiceCarousel` rewrite: item snapping
+  (`snapToInterval` + `disableIntervalMomentum`) plus a 4s auto-advance with
+  pause-on-drag. No new dependencies (reanimated-carousel needs the missing
+  `react-native-gesture-handler`).
+
+## Round 5 additions (Part 13)
+
+- **Schedule** (Part 13): web `/schedule` is customer-scoped (`Conversation.userId`)
+  but its menu link is shown to both roles; the mobile `/api/user/appointments`
+  endpoint covers both sides. RN adds a role-aware `/schedule` screen (filters to
+  the active role, shows the counterpart). The endpoint now also returns
+  `customer` so contractor-side cards show the customer.

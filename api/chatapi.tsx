@@ -149,6 +149,11 @@ export interface ScheduledAppointment {
     specializations: string[];
     userName?: string;
   };
+  /** The customer on the appointment (used by the contractor-side schedule). */
+  customer?: {
+    id: string | null;
+    name: string | null;
+  } | null;
 }
 
 // Chat API class

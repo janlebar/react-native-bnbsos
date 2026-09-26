@@ -24,6 +24,9 @@ only visible branding changes.
 | 8 | Cleanup + typecheck/lint + final status | ✅ done |
 | 9 | Search parity with Next.js header | ✅ done |
 | 10 | OAuth login rewrite (Better Auth social + JWT bridge) | ✅ done |
+| 11 | Favorites (save contractors) | ✅ done |
+| 12 | Home service carousel slides like the web | ✅ done |
+| 13 | Schedule (role-aware, both roles) | ✅ done |
 
 ## Part documents
 
@@ -37,11 +40,18 @@ only visible branding changes.
 - `part-08-cleanup.md`
 - `part-09-search.md`
 - `part-10-oauth.md`
+- `part-11-favorites.md`
+- `part-12-carousel.md`
+- `part-13-schedule.md`
 
 ## Backend (Next.js) changes made as part of this sync
 
 - `app/api/mobile/contractors/available-locations/route.ts` (NEW) — regions/cities
   that have visible contractors; powers the RN location picker (Part 9).
+- `app/api/mobile/favorites/route.ts` (NEW) — GET list + POST add (Part 11).
+- `app/api/mobile/favorites/[contractorId]/route.ts` (NEW) — DELETE remove (Part 11).
+- `app/api/user/appointments/route.ts` — returns `customer` on each appointment and
+  includes the conversation `User` (Part 13).
 
 ## Outstanding follow-ups
 

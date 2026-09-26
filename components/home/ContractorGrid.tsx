@@ -25,7 +25,6 @@ interface ContractorGridProps {
   searchCity?: string;
   onLoadMore: () => void;
   onContractorPress: (id: number) => void;
-  onFavoritePress?: (id: number) => void;
 }
 
 export default function ContractorGrid({
@@ -40,7 +39,6 @@ export default function ContractorGrid({
   searchCity,
   onLoadMore,
   onContractorPress,
-  onFavoritePress,
 }: ContractorGridProps) {
   const { width: screenWidth } = useWindowDimensions();
   
@@ -169,7 +167,6 @@ export default function ContractorGrid({
             isSignedIn={isSignedIn}
             isPremiumRow={index < premiumRowSize}
             onPress={onContractorPress}
-            onFavoritePress={onFavoritePress}
           />
         )}
         contentContainerStyle={[

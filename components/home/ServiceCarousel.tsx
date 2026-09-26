@@ -1,12 +1,13 @@
 // components/home/ServiceCarousel.tsx
-import React from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
   Text,
   FlatList,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
 } from "react-native";
 import { SvgProps } from "react-native-svg";
 import { ServiceCategory } from "../../types/home";
@@ -67,6 +68,10 @@ const CONTAINER_PADDING = 48; // 24px on each side
 const ITEM_SPACING = 8;
 const ITEMS_VISIBLE = 3.5;
 const ITEM_WIDTH = (screenWidth - CONTAINER_PADDING) / ITEMS_VISIBLE;
+// One item (+ its gap) per snap — matches the web carousel's one-slide-at-a-time feel.
+const SNAP_INTERVAL = ITEM_WIDTH + ITEM_SPACING;
+// Auto-advance cadence from the web `mainCarousel.tsx` (AUTO_SCROLL_INTERVAL_MS).
+const AUTO_SCROLL_INTERVAL_MS = 4000;
 
 interface ServiceCarouselProps {
   categories: ServiceCategory[];
@@ -79,14 +84,74 @@ export default function ServiceCarousel({
   selectedCategory,
   onSelectCategory,
 }: ServiceCarouselProps) {
+  const listRef = useRef<FlatList<ServiceCategory>>(null);
+  // Highest index that can still be left-aligned (last full "page").
+  const maxStartIndex = Math.max(
+    0,
+    categories.length - Math.ceil(ITEMS_VISIBLE)
+  );
+
+  // Track the current item via refs so the auto-scroll interval closure stays fresh.
+  const currentIndexRef = useRef(0);
+  const isPausedRef = useRef(false);
+  const [isPaused, setIsPaused] = useState(false);
+
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  // Reset when the list of categories changes.
+  useEffect(() => {
+    currentIndexRef.current = 0;
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [categories.length]);
+
+  // Auto-slide forward one item every 4s, looping back to the start.
+  // Pauses while the user is dragging (the mobile analogue of the web's
+  // hover/focus pause) and resumes after the momentum settles.
+  useEffect(() => {
+    if (categories.length <= Math.ceil(ITEMS_VISIBLE)) return;
+
+    const intervalId = setInterval(() => {
+      if (isPausedRef.current) return;
+
+      const next =
+        currentIndexRef.current >= maxStartIndex
+          ? 0
+          : currentIndexRef.current + 1;
+
+      currentIndexRef.current = next;
+      listRef.current?.scrollToIndex({ index: next, animated: true });
+    }, AUTO_SCROLL_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [categories.length, maxStartIndex]);
+
+  const handleScrollBeginDrag = useCallback(() => {
+    setIsPaused(true);
+  }, []);
+
+  const handleMomentumScrollEnd = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      const index = Math.round(offsetX / SNAP_INTERVAL);
+      currentIndexRef.current = Math.max(
+        0,
+        Math.min(index, Math.max(0, categories.length - 1))
+      );
+      setIsPaused(false);
+    },
+    [categories.length]
+  );
+
   const handlePress = (key: string) => {
     // Tap same category again to deselect
     onSelectCategory(selectedCategory === key ? null : key);
   };
 
   return (
-    // 🔴 RED = FlatList outer wrapper
     <FlatList
+      ref={listRef}
       horizontal
       data={categories}
       keyExtractor={(item) => item.key}
@@ -95,16 +160,35 @@ export default function ServiceCarousel({
       nestedScrollEnabled={true}
       bounces={true}
       decelerationRate="fast"
+      // Slide/snap one item at a time, like the web carousel.
+      snapToInterval={SNAP_INTERVAL}
+      snapToAlignment="start"
+      disableIntervalMomentum
+      getItemLayout={(_, index) => ({
+        length: SNAP_INTERVAL,
+        offset: SNAP_INTERVAL * index,
+        index,
+      })}
+      onScrollBeginDrag={handleScrollBeginDrag}
+      onMomentumScrollEnd={handleMomentumScrollEnd}
+      onScrollToIndexFailed={(info) => {
+        listRef.current?.scrollToOffset({
+          offset: info.index * SNAP_INTERVAL,
+          animated: true,
+        });
+      }}
       style={[styles.flatList, { backgroundColor: "transparent" }]}
-      // 🟠 ORANGE = contentContainer (paddingHorizontal/paddingVertical applied here)
       contentContainerStyle={[styles.container, { backgroundColor: "transparent" }]}
       renderItem={({ item }) => {
         const isSelected = selectedCategory === item.key;
         const IconComponent = CATEGORY_ICONS[item.key];
         return (
-          // 🟡 YELLOW = each TouchableOpacity item
           <TouchableOpacity
-            style={[styles.item, isSelected && styles.itemSelected, { backgroundColor: "transparent" }]}
+            style={[
+              styles.item,
+              isSelected && styles.itemSelected,
+              { backgroundColor: "transparent" },
+            ]}
             onPress={() => handlePress(item.key)}
             activeOpacity={0.7}
           >
@@ -112,15 +196,11 @@ export default function ServiceCarousel({
               <IconComponent
                 width={36}
                 height={36}
-                style={[
-                  styles.icon,
-                  isSelected && styles.iconSelected,
-                ]}
+                style={[styles.icon, isSelected && styles.iconSelected]}
               />
             ) : (
               <Text style={styles.iconFallback}>✨</Text>
             )}
-            {/* 🟢 GREEN = label text */}
             <Text
               style={[styles.label, isSelected && styles.labelSelected]}
               numberOfLines={2}

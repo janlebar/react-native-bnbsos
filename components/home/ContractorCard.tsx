@@ -9,13 +9,13 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Contractor } from "../../types/home";
+import FavoriteButton from "../FavoriteButton";
 
 interface ContractorCardProps {
   contractor: Contractor;
   isSignedIn: boolean;
   isPremiumRow: boolean; // true if position 0–7
   onPress: (id: number) => void;
-  onFavoritePress?: (id: number) => void;
 }
 
 
@@ -24,7 +24,6 @@ export default function ContractorCard({
   isSignedIn,
   isPremiumRow,
   onPress,
-  onFavoritePress,
 }: ContractorCardProps) {
   const { width: screenWidth } = useWindowDimensions();
   
@@ -300,14 +299,11 @@ export default function ContractorCard({
         )}
 
         {/* Favorite button */}
-        {onFavoritePress && (
-          <TouchableOpacity
-            style={dynamicStyles.favoriteButton}
-            onPress={() => onFavoritePress(contractor.id)}
-          >
-            <Text>🤍</Text>
-          </TouchableOpacity>
-        )}
+        <FavoriteButton
+          contractorId={contractor.id}
+          size="sm"
+          style={dynamicStyles.favoriteButton}
+        />
 
         {/* Avatar */}
         <View style={dynamicStyles.avatarContainer}>
