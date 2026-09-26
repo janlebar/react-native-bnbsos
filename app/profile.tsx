@@ -11,6 +11,8 @@ import { useAuth } from "../lib/auth-context";
 import SettingsIcon from "../assets/icons/settings.svg";
 import ContractorSettingsIcon from "../assets/icons/contractor_settings.svg";
 import ChevronRightIcon from "../assets/icons/chevron_right.svg";
+import FavoriteIcon from "../assets/icons/favorite.svg";
+import ScheduleIcon from "../assets/icons/schedule.svg";
 import FooterMenu, { FOOTER_HEIGHT } from "./user/footerMenu";
 import { RoleSwitchButton } from "../components/RoleSwitchButton";
 
@@ -70,9 +72,9 @@ export default function ProfileScreen() {
                   style={styles.icon}
                 />
               ) : link.href === "/favorites" ? (
-                <Text style={styles.emoji}>❤️</Text>
+                <FavoriteIcon width={24} height={24} style={styles.icon} />
               ) : link.href === "/schedule" ? (
-                <Text style={styles.emoji}>📅</Text>
+                <ScheduleIcon width={24} height={24} style={styles.icon} />
               ) : (
                 <Text style={styles.emoji}>🔗</Text>
               )}

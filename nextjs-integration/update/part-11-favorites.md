@@ -37,7 +37,10 @@ model (`@@unique([userId, contractorId])`).
   of saved contractors; refreshes on focus. Shows an "unavailable" state if opened
   in contractor mode.
 - `app/profile.tsx` — added a **Favorites** link (non-contractor accounts only,
-  matching the web profile menu).
+  matching the web profile menu). The link uses a monochrome heart SVG
+  (`assets/icons/favorite.svg`) instead of a coloured emoji. All profile-menu
+  icons (`settings`, `contractor_settings`, `chevron_right`, `favorite`,
+  `schedule`) were set to the dark fill `#1f1f1f` so they are visible and unified.
 
 ## Contractor mode gating
 

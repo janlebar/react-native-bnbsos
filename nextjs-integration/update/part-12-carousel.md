@@ -18,7 +18,8 @@ and pauses on hover/focus. Part 12 brings the sliding behaviour to RN.
   fallback.
 - Reset to index 0 when the category list changes.
 - Preserved the existing category-select (tap to filter) behaviour and the 22-key
-  icon map from Part 2.
+  icon map from Part 2. The category icons are the **real Next.js carousel SVGs**
+  (copied from `public/images/carousel/*.svg`) — see Part 2 notes.
 
 ## Notes / differences from web
 

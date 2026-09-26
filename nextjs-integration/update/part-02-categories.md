@@ -13,9 +13,14 @@
 
 ## Notes
 
-- New icons are **simple placeholder silhouettes** (consistent 24x24 filled style).
-  Bespoke artwork matching the web brand is still pending — flagged for design.
+- The category icons are now **copied verbatim from the Next.js carousel**
+  (`next-auth/next-auth/public/images/carousel/*.svg`) into `assets/icons/`,
+  replacing the earlier placeholder silhouettes. This matches the established RN
+  convention (`lawn_mowing.svg` was already an exact copy).
+- `class`-based fills (`.st0{fill:#FFFFFF}` in `facades`, `lawn_mowing`, `tiling`)
+  are ignored by `react-native-svg`, so those shapes render with the default black
+  fill — same as the other icons on the light carousel background.
 - `data/dataMap.tsx` (`plumber-2`/`painter-3` keys) and `data/carouselData.tsx`
-  are **unreferenced dead code** — see Part 8 cleanup.
+  were **unreferenced dead code** — removed in Part 8.
 - The carousel falls back to an `✨` emoji for any key without an icon; with the
   22-key map every backend key now resolves to an icon.

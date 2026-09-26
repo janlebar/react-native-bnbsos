@@ -36,6 +36,8 @@ role's side, showing the counterpart:
   conversation (`/(auth)/chat/{contractorId}/{conversationId}`). Role-aware:
   filters appointments to the active role and shows the counterpart name.
 - `app/profile.tsx` — added a **Schedule** link (shown for both roles, web parity).
+  The link uses a monochrome calendar SVG (`assets/icons/schedule.svg`) instead of
+  a coloured emoji. Profile-menu icons were darkened to `#1f1f1f` (see Part 11).
 
 ## Notes
 
